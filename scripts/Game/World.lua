@@ -229,26 +229,41 @@ function World.SpawnHeart(zPos)
         Config.HEART_HEIGHT,
         zPos
     )
-    heartNode.scale = Vector3(0.45, 0.45, 0.45)
 
-    local heartModel = heartNode:CreateComponent("StaticModel")
-    heartModel:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+    -- 使用 BillboardSet 显示爱心图片
+    local bbSet = heartNode:CreateComponent("BillboardSet")
+    bbSet.numBillboards = 1
+    bbSet.sorted = true
+    bbSet.faceCameraMode = FC_ROTATE_XYZ
 
-    -- 红色发光材质
+    -- 加载爱心材质（透明纹理）
     local heartMat = Material:new()
-    heartMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-    heartMat:SetShaderParameter("MatDiffColor", Variant(Color(0.9, 0.1, 0.15, 1.0)))
-    heartMat:SetShaderParameter("Metallic", Variant(0.3))
-    heartMat:SetShaderParameter("Roughness", Variant(0.4))
-    heartMat:SetShaderParameter("MatEmissiveColor", Variant(Color(0.6, 0.05, 0.08)))
-    heartModel:SetMaterial(heartMat)
-    heartModel.castShadows = false
+    heartMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
+    heartMat:SetTexture(0, cache:GetResource("Texture2D", "image/heart_item_20260328065004.png"))
+    heartMat:SetShaderParameter("MatDiffColor", Variant(Color(1.0, 1.0, 1.0, 1.0)))
+    bbSet:SetMaterial(heartMat)
+
+    local bb = bbSet:GetBillboard(0)
+    bb.position = Vector3(0, 0, 0)
+    bb.size = Vector2(0.7, 0.7)
+    bb.enabled = true
+    bbSet:Commit()
+
+    -- 添加点光源做光效
+    local lightNode = heartNode:CreateChild("HeartLight")
+    local light = lightNode:CreateComponent("Light")
+    light.lightType = LIGHT_POINT
+    light.range = 3.0
+    light.color = Color(1.0, 0.3, 0.35)
+    light.brightness = 1.5
+    light.castShadows = false
 
     table.insert(State.heartNodes, {
         node = heartNode,
         z = zPos,
         lane = lane,
         collected = false,
+        baseSize = 0.7,
     })
 end
 
@@ -285,25 +300,47 @@ function World.UpdateHearts(dt)
                     pos.y = heart.collectOriginY + t * 3.0
                     heart.node.position = pos
 
-                    -- 膨胀后消失
+                    -- 膨胀后消失（通过 Billboard size 控制）
                     local s
                     if t < 0.3 then
-                        s = 0.45 * (1.0 + t / 0.3 * 1.0)
+                        s = 0.7 * (1.0 + t / 0.3 * 1.5)
                     else
-                        s = 0.9 * (1.0 - (t - 0.3) / 0.7)
+                        s = 1.75 * (1.0 - (t - 0.3) / 0.7)
                     end
-                    heart.node.scale = Vector3(s, s, s)
-
-                    heart.node:Rotate(Quaternion(0, 540 * dt, 0))
+                    local bbSet = heart.node:GetComponent("BillboardSet")
+                    if bbSet then
+                        local bb = bbSet:GetBillboard(0)
+                        bb.size = Vector2(s, s)
+                        bbSet:Commit()
+                    end
                 end
             else
-                -- 上下浮动 + 旋转
+                -- 上下浮动（加大幅度）+ 呼吸脉冲缩放 + 光效脉冲
+                local elapsed = GetTime():GetElapsedTime()
+                local phase = elapsed * 2.5 + heart.z
                 local baseY = Config.HEART_HEIGHT
-                local floatOffset = math.sin(GetTime():GetElapsedTime() * 3.0 + heart.z) * 0.2
+                local floatOffset = math.sin(phase) * 0.35
                 local pos = heart.node.position
                 pos.y = baseY + floatOffset
                 heart.node.position = pos
-                heart.node:Rotate(Quaternion(0, 90 * dt, 0))
+
+                -- 呼吸脉冲：尺寸在 0.6~0.8 之间波动
+                local pulse = 0.7 + math.sin(elapsed * 4.0 + heart.z) * 0.1
+                local bbSet = heart.node:GetComponent("BillboardSet")
+                if bbSet then
+                    local bb = bbSet:GetBillboard(0)
+                    bb.size = Vector2(pulse, pulse)
+                    bbSet:Commit()
+                end
+
+                -- 光源亮度脉冲
+                local lightNode = heart.node:GetChild("HeartLight")
+                if lightNode then
+                    local light = lightNode:GetComponent("Light")
+                    if light then
+                        light.brightness = 1.2 + math.sin(elapsed * 3.0 + heart.z) * 0.6
+                    end
+                end
 
                 -- 碰撞检测
                 local heartPos = heart.node.position
