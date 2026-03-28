@@ -378,15 +378,24 @@ function Player.CheckCollision(obs)
             return true
         end
     elseif obs.obsType == Config.OBS_LOW_BAR then
+        -- 2轨道时，玩家在空轨道可躲避
+        if obs.openLane and math.abs(playerX - obs.openLane * Config.LANE_WIDTH) < Config.LANE_WIDTH * 0.6 then
+            return false
+        end
         if playerY < 0.8 then
             return true
         end
     elseif obs.obsType == Config.OBS_HIGH_BAR then
+        if obs.openLane and math.abs(playerX - obs.openLane * Config.LANE_WIDTH) < Config.LANE_WIDTH * 0.6 then
+            return false
+        end
         if not State.isSliding and playerY < 0.3 then
             return true
         end
     elseif obs.obsType == Config.OBS_OVERHEAD then
-        -- 低天花板：跳跃也躲不过，只能下蹲
+        if obs.openLane and math.abs(playerX - obs.openLane * Config.LANE_WIDTH) < Config.LANE_WIDTH * 0.6 then
+            return false
+        end
         if not State.isSliding then
             return true
         end

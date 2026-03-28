@@ -149,62 +149,75 @@ function World.SpawnObstacle(zPos)
             obs.lane2 = lane2
         end
 
-    elseif obsType == Config.OBS_LOW_BAR then
-        obs.damage = 2
-        node.position = Vector3(0, 0.4, zPos)
-        node.scale = Vector3(Config.TRACK_WIDTH * 0.8, 0.8, 0.3)
-        local model = node:CreateComponent("StaticModel")
-        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        model:SetMaterial(Config.CreatePBRMaterial(Color(0.9, 0.6, 0.1, 1.0), 0.5, 0.3))
-        model.castShadows = true
-        obs.lane = -99
+    elseif obsType == Config.OBS_LOW_BAR
+        or obsType == Config.OBS_HIGH_BAR
+        or obsType == Config.OBS_OVERHEAD then
 
-    elseif obsType == Config.OBS_HIGH_BAR then
-        obs.damage = 3
-        node.position = Vector3(0, 1.3, zPos)
-        node.scale = Vector3(Config.TRACK_WIDTH * 0.8, 0.5, 0.3)
-        local model = node:CreateComponent("StaticModel")
-        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        model:SetMaterial(Config.CreatePBRMaterial(Color(0.2, 0.7, 0.3, 1.0), 0.2, 0.5))
-        model.castShadows = true
-
-        -- 支撑柱
-        for side = -1, 1, 2 do
-            local pillar = node:CreateChild("Pillar")
-            local parentScaleX = Config.TRACK_WIDTH * 0.8
-            local parentScaleY = 0.5
-            pillar.position = Vector3(side * 0.45, -1.3 / parentScaleY, 0)
-            pillar.scale = Vector3(0.1 / parentScaleX, 2.6 / parentScaleY, 0.1 / 0.3)
-            local pillarModel = pillar:CreateComponent("StaticModel")
-            pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            pillarModel:SetMaterial(Config.CreatePBRMaterial(Color(0.5, 0.5, 0.5, 1.0), 0.8, 0.3))
-            pillarModel.castShadows = true
+        -- 栏板类障碍：50% 概率只占2轨道，留1轨道可变道躲避
+        local barOffsetX = 0
+        local barWidthRatio = 0.8  -- 满3轨道宽度比
+        if math.random() > 0.5 then
+            -- 2轨道：随机空出左或右
+            local openLane = math.random(0, 1) == 0 and -1 or 1
+            obs.openLane = openLane
+            barOffsetX = -openLane * Config.LANE_WIDTH * 0.5
+            barWidthRatio = 0.55  -- 缩窄到覆盖2轨道
         end
         obs.lane = -99
 
-    elseif obsType == Config.OBS_OVERHEAD then
-        -- 低天花板：横跨全道，只能下蹲通过，跳跃也会撞到
-        obs.damage = 2
-        node.position = Vector3(0, 1.6, zPos)
-        node.scale = Vector3(Config.TRACK_WIDTH * 0.85, 1.4, 1.2)
-        local model = node:CreateComponent("StaticModel")
-        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        model:SetMaterial(Config.CreatePBRMaterial(Color(0.7, 0.35, 0.8, 1.0), 0.4, 0.5))
-        model.castShadows = true
+        if obsType == Config.OBS_LOW_BAR then
+            obs.damage = 2
+            node.position = Vector3(barOffsetX, 0.4, zPos)
+            node.scale = Vector3(Config.TRACK_WIDTH * barWidthRatio, 0.8, 0.3)
+            local model = node:CreateComponent("StaticModel")
+            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            model:SetMaterial(Config.CreatePBRMaterial(Color(0.9, 0.6, 0.1, 1.0), 0.5, 0.3))
+            model.castShadows = true
 
-        -- 两侧支撑柱
-        for side = -1, 1, 2 do
-            local pillar = node:CreateChild("Pillar")
-            local parentScaleX = Config.TRACK_WIDTH * 0.85
-            local parentScaleY = 1.4
-            pillar.position = Vector3(side * 0.45, -0.8 / parentScaleY, 0)
-            pillar.scale = Vector3(0.15 / parentScaleX, 1.6 / parentScaleY, 0.15 / 1.2)
-            local pillarModel = pillar:CreateComponent("StaticModel")
-            pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            pillarModel:SetMaterial(Config.CreatePBRMaterial(Color(0.5, 0.25, 0.6, 1.0), 0.6, 0.4))
-            pillarModel.castShadows = true
+        elseif obsType == Config.OBS_HIGH_BAR then
+            obs.damage = 3
+            local barW = Config.TRACK_WIDTH * barWidthRatio
+            node.position = Vector3(barOffsetX, 1.3, zPos)
+            node.scale = Vector3(barW, 0.5, 0.3)
+            local model = node:CreateComponent("StaticModel")
+            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            model:SetMaterial(Config.CreatePBRMaterial(Color(0.2, 0.7, 0.3, 1.0), 0.2, 0.5))
+            model.castShadows = true
+
+            -- 支撑柱
+            for side = -1, 1, 2 do
+                local pillar = node:CreateChild("Pillar")
+                local parentScaleY = 0.5
+                pillar.position = Vector3(side * 0.45, -1.3 / parentScaleY, 0)
+                pillar.scale = Vector3(0.1 / barW, 2.6 / parentScaleY, 0.1 / 0.3)
+                local pillarModel = pillar:CreateComponent("StaticModel")
+                pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                pillarModel:SetMaterial(Config.CreatePBRMaterial(Color(0.5, 0.5, 0.5, 1.0), 0.8, 0.3))
+                pillarModel.castShadows = true
+            end
+
+        elseif obsType == Config.OBS_OVERHEAD then
+            obs.damage = 2
+            local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
+            node.position = Vector3(barOffsetX, 1.6, zPos)
+            node.scale = Vector3(barW, 1.4, 1.2)
+            local model = node:CreateComponent("StaticModel")
+            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            model:SetMaterial(Config.CreatePBRMaterial(Color(0.7, 0.35, 0.8, 1.0), 0.4, 0.5))
+            model.castShadows = true
+
+            -- 两侧支撑柱
+            for side = -1, 1, 2 do
+                local pillar = node:CreateChild("Pillar")
+                local parentScaleY = 1.4
+                pillar.position = Vector3(side * 0.45, -0.8 / parentScaleY, 0)
+                pillar.scale = Vector3(0.15 / barW, 1.6 / parentScaleY, 0.15 / 1.2)
+                local pillarModel = pillar:CreateComponent("StaticModel")
+                pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                pillarModel:SetMaterial(Config.CreatePBRMaterial(Color(0.5, 0.25, 0.6, 1.0), 0.6, 0.4))
+                pillarModel.castShadows = true
+            end
         end
-        obs.lane = -99
     end
 
     table.insert(State.obstacles, obs)
