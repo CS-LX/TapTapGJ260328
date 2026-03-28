@@ -453,54 +453,212 @@ function World.SpawnObstacle(zPos)
 
         if obsType == Config.OBS_LOW_BAR then
             obs.damage = 2
-            node.position = Vector3(barOffsetX, 0.4, zPos)
-            node.scale = Vector3(Config.TRACK_WIDTH * barWidthRatio, 0.8, 0.3)
-            local model = node:CreateComponent("StaticModel")
-            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreateObsMaterial(vis.lowBar))
-            model.castShadows = true
+
+            if State.biomeIndex == 1 then
+                -- Savanna: Lowpoly 土堆（尺寸跟随障碍宽度动态变化）
+                local moundW = Config.TRACK_WIDTH * barWidthRatio  -- 障碍实际宽度
+                local moundBase = moundW * 0.9                    -- 主锥体底部直径
+                local moundH = 0.8 + moundW * 0.12                -- 高度随宽度增长
+                local moundD = math.max(1.5, moundW * 0.5)        -- 纵深
+                node.position = Vector3(barOffsetX, 0.0, zPos)
+
+                -- 主体大土丘（扁锥形）
+                local mainMound = node:CreateChild("MainMound")
+                mainMound.position = Vector3(0, 0, 0)
+                mainMound.scale = Vector3(moundBase, moundH, moundD)
+                local mm = mainMound:CreateComponent("StaticModel")
+                mm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+                mm:SetMaterial(Config.CreatePBRMaterial(
+                    Color(0.62, 0.42, 0.22, 1.0), 0.0, 0.92))
+                mm.castShadows = true
+
+                -- 侧面小土丘（数量和大小也随宽度增加）
+                local bumpCount = barWidthRatio > 0.5 and 4 or 2
+                for j = 1, bumpCount do
+                    local bump = node:CreateChild("Bump")
+                    local bAngle = (j / bumpCount) * math.pi * 2 + math.random() * 0.8
+                    local bDist = moundBase * 0.35 + math.random() * moundBase * 0.15
+                    bump.position = Vector3(
+                        math.cos(bAngle) * bDist,
+                        0,
+                        math.sin(bAngle) * bDist * 0.6
+                    )
+                    local bScale = moundBase * (0.3 + math.random() * 0.2)
+                    bump.scale = Vector3(bScale, moundH * (0.5 + math.random() * 0.3), bScale * 0.7)
+                    bump.rotation = Quaternion(math.random() * 40 - 20, Vector3.UP)
+                    local bm = bump:CreateComponent("StaticModel")
+                    bm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+                    bm:SetMaterial(Config.CreatePBRMaterial(
+                        Color(0.58 + math.random() * 0.08, 0.38 + math.random() * 0.06, 0.18, 1.0), 0.0, 0.90))
+                    bm.castShadows = true
+                end
+
+                -- 顶部岩石点缀（数量随宽度增加）
+                local rockCount = barWidthRatio > 0.5 and 5 or 3
+                for j = 1, rockCount do
+                    local rock = node:CreateChild("Rock")
+                    local angle = (j / rockCount) * math.pi * 2 + math.random() * 0.5
+                    local dist = moundBase * 0.15 + math.random() * moundBase * 0.25
+                    rock.position = Vector3(math.cos(angle) * dist, moundH * 0.25 + math.random() * moundH * 0.4, math.sin(angle) * dist * 0.5)
+                    local rs = 0.15 + math.random() * 0.15
+                    rock.scale = Vector3(rs, rs * 0.8, rs)
+                    rock.rotation = Quaternion(math.random() * 360, Vector3.UP)
+                    local rm = rock:CreateComponent("StaticModel")
+                    rm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    rm:SetMaterial(Config.CreatePBRMaterial(
+                        Color(0.50, 0.42, 0.34, 1.0), 0.1, 0.85))
+                    rm.castShadows = true
+                end
+            else
+                node.position = Vector3(barOffsetX, 0.4, zPos)
+                node.scale = Vector3(Config.TRACK_WIDTH * barWidthRatio, 0.8, 0.3)
+                local model = node:CreateComponent("StaticModel")
+                model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                model:SetMaterial(Config.CreateObsMaterial(vis.lowBar))
+                model.castShadows = true
+            end
 
         elseif obsType == Config.OBS_HIGH_BAR then
             obs.damage = 3
             local barW = Config.TRACK_WIDTH * barWidthRatio
-            node.position = Vector3(barOffsetX, 1.3, zPos)
-            node.scale = Vector3(barW, 0.5, 0.3)
-            local model = node:CreateComponent("StaticModel")
-            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreateObsMaterial(vis.highBar))
-            model.castShadows = true
 
-            for side = -1, 1, 2 do
-                local pillar = node:CreateChild("Pillar")
-                local parentScaleY = 0.5
-                pillar.position = Vector3(side * 0.45, -1.3 / parentScaleY, 0)
-                pillar.scale = Vector3(0.1 / barW, 2.6 / parentScaleY, 0.1 / 0.3)
-                local pillarModel = pillar:CreateComponent("StaticModel")
-                pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                pillarModel:SetMaterial(Config.CreateObsMaterial(vis.pillar))
-                pillarModel.castShadows = true
+            if State.biomeIndex == 1 then
+                -- Savanna: 滚木（横躺原木，横向滚动+弹跳）
+                local logRadius = 0.45  -- 原木半径
+                local logLen = barW     -- 原木长度=横跨赛道宽度
+                node.position = Vector3(barOffsetX, logRadius + 0.1, zPos)
+
+                -- 原木主体容器（子节点方便整体旋转）
+                local logBody = node:CreateChild("LogBody")
+                logBody.rotation = Quaternion(0, 0, 90)  -- 横躺：Y轴→X轴
+
+                -- 主干（深色树皮）
+                local trunk = logBody:CreateChild("Trunk")
+                trunk.scale = Vector3(logRadius * 2, logLen, logRadius * 2)
+                local tm = trunk:CreateComponent("StaticModel")
+                tm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
+                tm:SetMaterial(Config.CreatePBRMaterial(
+                    Color(0.45, 0.28, 0.12, 1.0), 0.0, 0.88))
+                tm.castShadows = true
+
+                -- 树皮凸起条纹（Lowpoly 风格，沿长度方向的棱）
+                for j = 1, 5 do
+                    local angle = (j / 5) * math.pi * 2
+                    local bark = logBody:CreateChild("Bark")
+                    local bx = math.cos(angle) * logRadius * 0.85
+                    local bz = math.sin(angle) * logRadius * 0.85
+                    bark.position = Vector3(bx, 0, bz)
+                    bark.scale = Vector3(0.12, logLen * 0.9, 0.08)
+                    local bm = bark:CreateComponent("StaticModel")
+                    bm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    bm:SetMaterial(Config.CreatePBRMaterial(
+                        Color(0.38, 0.22, 0.08, 1.0), 0.0, 0.92))
+                    bm.castShadows = false
+                end
+
+                -- 两端年轮截面（浅色圆盘）
+                for side = -1, 1, 2 do
+                    local cap = logBody:CreateChild("Cap")
+                    cap.position = Vector3(0, side * logLen * 0.5, 0)
+                    cap.scale = Vector3(logRadius * 1.8, 0.05, logRadius * 1.8)
+                    local cm = cap:CreateComponent("StaticModel")
+                    cm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
+                    cm:SetMaterial(Config.CreatePBRMaterial(
+                        Color(0.72, 0.55, 0.32, 1.0), 0.0, 0.85))
+                    cm.castShadows = false
+                end
+
+                -- 标记为滚木，用于弹跳+滚动动画
+                obs.isRollingLog = true
+                obs.logBaseY = logRadius + 0.1
+                obs.logPhase = math.random() * math.pi * 2
+                obs.logSpin = 0  -- 累计滚动角度
+            else
+                node.position = Vector3(barOffsetX, 1.3, zPos)
+                node.scale = Vector3(barW, 0.5, 0.3)
+                local model = node:CreateComponent("StaticModel")
+                model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                model:SetMaterial(Config.CreateObsMaterial(vis.highBar))
+                model.castShadows = true
+
+                for side = -1, 1, 2 do
+                    local pillar = node:CreateChild("Pillar")
+                    local parentScaleY = 0.5
+                    pillar.position = Vector3(side * 0.45, -1.3 / parentScaleY, 0)
+                    pillar.scale = Vector3(0.1 / barW, 2.6 / parentScaleY, 0.1 / 0.3)
+                    local pillarModel = pillar:CreateComponent("StaticModel")
+                    pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    pillarModel:SetMaterial(Config.CreateObsMaterial(vis.pillar))
+                    pillarModel.castShadows = true
+                end
             end
 
         elseif obsType == Config.OBS_OVERHEAD then
             obs.damage = 2
-            local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
-            node.position = Vector3(barOffsetX, 1.6, zPos)
-            node.scale = Vector3(barW, 1.4, 1.2)
-            local model = node:CreateComponent("StaticModel")
-            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreateObsMaterial(vis.overhead))
-            model.castShadows = true
-            DecorateOverhead(node, State.biomeIndex, vis)
 
-            for side = -1, 1, 2 do
-                local pillar = node:CreateChild("Pillar")
-                local parentScaleY = 1.4
-                pillar.position = Vector3(side * 0.45, -0.8 / parentScaleY, 0)
-                pillar.scale = Vector3(0.15 / barW, 1.6 / parentScaleY, 0.15 / 1.2)
-                local pillarModel = pillar:CreateComponent("StaticModel")
-                pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                pillarModel:SetMaterial(Config.CreateObsMaterial(vis.oPillar))
-                pillarModel.castShadows = true
+            if State.biomeIndex == 1 then
+                -- Savanna: 西部广告牌
+                local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
+                node.position = Vector3(barOffsetX, 1.6, zPos)
+
+                -- 两根木柱
+                for side = -1, 1, 2 do
+                    local post = node:CreateChild("Post")
+                    post.position = Vector3(side * barW * 0.42, -0.4, 0)
+                    post.scale = Vector3(0.2, 3.2, 0.2)
+                    local pm = post:CreateComponent("StaticModel")
+                    pm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    pm:SetMaterial(Config.CreatePBRMaterial(
+                        Color(0.45, 0.28, 0.12, 1.0), 0.0, 0.88))
+                    pm.castShadows = true
+                end
+
+                -- 广告牌面板（Billboard 贴图）
+                local signNode = node:CreateChild("Sign")
+                signNode.position = Vector3(0, 0.4, 0)
+
+                local bbSet = signNode:CreateComponent("BillboardSet")
+                bbSet.numBillboards = 1
+                bbSet.sorted = true
+                bbSet.faceCameraMode = FC_NONE  -- 固定朝向，不随相机旋转
+                bbSet.castShadows = true
+
+                if not blockTexCache["billboard_ad"] then
+                    local mat = Material:new()
+                    mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
+                    mat:SetTexture(0, cache:GetResource("Texture2D", "image/billboard_ad_20260328172929.png"))
+                    mat:SetShaderParameter("MatDiffColor", Variant(Color(2.5, 2.5, 2.5, 1.0)))
+                    blockTexCache["billboard_ad"] = mat
+                end
+                bbSet:SetMaterial(blockTexCache["billboard_ad"])
+
+                local signW = barW * 0.8
+                local signH = signW * 0.5  -- 广告牌宽高比 2:1
+                local bb = bbSet:GetBillboard(0)
+                bb.position = Vector3(0, 0, 0)
+                bb.size = Vector2(signW * 0.5, signH * 0.5)
+                bb.enabled = true
+                bbSet:Commit()
+            else
+                local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
+                node.position = Vector3(barOffsetX, 1.6, zPos)
+                node.scale = Vector3(barW, 1.4, 1.2)
+                local model = node:CreateComponent("StaticModel")
+                model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                model:SetMaterial(Config.CreateObsMaterial(vis.overhead))
+                model.castShadows = true
+                DecorateOverhead(node, State.biomeIndex, vis)
+
+                for side = -1, 1, 2 do
+                    local pillar = node:CreateChild("Pillar")
+                    local parentScaleY = 1.4
+                    pillar.position = Vector3(side * 0.45, -0.8 / parentScaleY, 0)
+                    pillar.scale = Vector3(0.15 / barW, 1.6 / parentScaleY, 0.15 / 1.2)
+                    local pillarModel = pillar:CreateComponent("StaticModel")
+                    pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    pillarModel:SetMaterial(Config.CreateObsMaterial(vis.oPillar))
+                    pillarModel.castShadows = true
+                end
             end
         end
     end
@@ -560,6 +718,23 @@ function World.UpdateObstacles(dt)
         World.SpawnObstacle(State.nextObstacleZ)
         local speedRatio = State.runSpeed / Config.START_SPEED
         State.nextObstacleZ = State.nextObstacleZ + (Config.OBSTACLE_INTERVAL + math.random() * 8) * speedRatio
+    end
+
+    -- 滚木弹跳+横向滚动动画
+    for _, obs in ipairs(State.obstacles) do
+        if obs.isRollingLog and obs.node then
+            obs.logPhase = obs.logPhase + dt * 4.0  -- 弹跳频率
+            local bounce = math.abs(math.sin(obs.logPhase)) * 0.8  -- 弹跳幅度 0~0.8m
+            local pos = obs.node.position
+            obs.node.position = Vector3(pos.x, obs.logBaseY + bounce, pos.z)
+            -- 横向滚动：LogBody 子节点绕自身 Y 轴旋转（横躺后就是绕长度轴）
+            obs.logSpin = (obs.logSpin or 0) + dt * 180  -- 滚动速度
+            local logBody = obs.node:GetChild("LogBody")
+            if logBody then
+                -- 先横躺(Z轴90度)，再绕本地Y轴自转(滚动)
+                logBody.rotation = Quaternion(0, 0, 90) * Quaternion(obs.logSpin, Vector3.UP)
+            end
+        end
     end
 
     local toRemove = {}
