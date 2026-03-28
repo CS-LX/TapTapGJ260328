@@ -49,10 +49,11 @@ Config.INVINCIBLE_DURATION = 1.5
 
 -- 场景切换配置
 Config.BIOME_SEGMENT_COUNT  = 3          -- 每场景地面段数（3 × 200m = 600m）
-Config.CANYON_LENGTH         = 10.0       -- 峡谷间隙宽度（米）
-Config.CANYON_JUMP_VELOCITY  = 14.0       -- 峡谷自动跳跃速度（加强版）
+Config.CANYON_LENGTH         = 40.0       -- 峡谷间隙宽度（米）
+Config.CANYON_JUMP_VELOCITY  = 18.0       -- 峡谷自动跳跃速度（加强版）
 Config.CANYON_TRIGGER_OFFSET = 2.0        -- 峡谷前多远触发自动跳跃
 Config.CANYON_INPUT_LOCK     = 0.3        -- 自动跳跃时锁定变道（秒）
+Config.CANYON_SPEED_BOOST    = 2.5        -- 峡谷飞行速度倍率
 
 Config.BIOMES = {
     {   -- 城市（默认灰色调）

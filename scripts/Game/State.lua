@@ -67,6 +67,9 @@ State.zoneComponent = nil               -- Zone 组件引用（用于雾色渐�
 State.fogCurrentColor = Color(0.6, 0.75, 0.95)  -- 当前雾色
 State.fogTargetColor  = Color(0.6, 0.75, 0.95)  -- 目标雾色
 
+-- 峡谷拖尾特效
+State.trailNodes = {}           -- 拖尾节点列表 { node, life, maxLife }
+
 -- 动画相关
 State.playerRunAngle = 0.0
 State.swipeStartX = 0
@@ -108,6 +111,11 @@ function State.ClearAll()
     State.canyons = {}
     State.isAutoJumping = false
     State.autoJumpInputLock = 0.0
+    -- 清理拖尾节点
+    for _, trail in ipairs(State.trailNodes) do
+        if trail.node then trail.node:Remove() end
+    end
+    State.trailNodes = {}
     local firstBiome = require("Game.Config").BIOMES[1]
     State.fogCurrentColor = Color(firstBiome.fog.r, firstBiome.fog.g, firstBiome.fog.b)
     State.fogTargetColor  = Color(firstBiome.fog.r, firstBiome.fog.g, firstBiome.fog.b)

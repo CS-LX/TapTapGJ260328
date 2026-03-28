@@ -258,7 +258,9 @@ function Player.Update(dt)
 
     local pos = State.playerNode.position
 
-    pos.z = pos.z + State.runSpeed * dt
+    -- 峡谷飞行时速度加成
+    local speedMultiplier = State.isAutoJumping and Config.CANYON_SPEED_BOOST or 1.0
+    pos.z = pos.z + State.runSpeed * speedMultiplier * dt
     State.distanceTraveled = pos.z
 
     local dx = State.targetLaneX - pos.x
@@ -286,6 +288,12 @@ function Player.Update(dt)
     end
 
     State.playerNode.position = pos
+
+    -- 峡谷飞行拖尾特效
+    if State.isAutoJumping then
+        Player.SpawnTrail(pos)
+    end
+    Player.UpdateTrail(dt)
 
     -- 无敌状态更新
     if State.isInvincible then
@@ -360,6 +368,76 @@ function Player.UpdateVisual(dt)
             rightLeg.scale = Vector3(0.25, 0.8, 0.25)
             rightLeg.rotation = Quaternion(legSwing * 40, Vector3.RIGHT)
         end
+    end
+end
+
+-- ============================================================================
+-- 峡谷拖尾特效
+-- ============================================================================
+
+local trailSpawnTimer = 0
+local trailMat = nil
+
+function Player.SpawnTrail(playerPos)
+    trailSpawnTimer = trailSpawnTimer + 1
+    -- 每2帧生成一个拖尾球
+    if trailSpawnTimer % 2 ~= 0 then return end
+
+    -- 懒创建拖尾材质（半透明发光蓝色）
+    if not trailMat then
+        trailMat = Material:new()
+        trailMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
+        trailMat:SetShaderParameter("MatDiffColor", Variant(Color(0.3, 0.6, 1.0, 0.8)))
+        trailMat:SetShaderParameter("MatEmissiveColor", Variant(Color(0.4, 0.6, 1.0)))
+        trailMat:SetShaderParameter("Metallic", Variant(0.0))
+        trailMat:SetShaderParameter("Roughness", Variant(0.2))
+    end
+
+    local trailNode = State.scene:CreateChild("Trail")
+    -- 在角色身后略微随机位置生成
+    local offsetX = (math.random() - 0.5) * 0.6
+    local offsetY = (math.random() - 0.5) * 0.4
+    trailNode.position = Vector3(
+        playerPos.x + offsetX,
+        playerPos.y + 0.9 + offsetY,
+        playerPos.z - 0.8
+    )
+    local size = 0.25 + math.random() * 0.15
+    trailNode.scale = Vector3(size, size, size)
+
+    local model = trailNode:CreateComponent("StaticModel")
+    model:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+    model:SetMaterial(trailMat)
+    model.castShadows = false
+
+    table.insert(State.trailNodes, {
+        node = trailNode,
+        life = 0,
+        maxLife = 0.5 + math.random() * 0.3,
+        startScale = size,
+    })
+end
+
+function Player.UpdateTrail(dt)
+    local toRemove = {}
+    for i, trail in ipairs(State.trailNodes) do
+        trail.life = trail.life + dt
+        if trail.life >= trail.maxLife then
+            table.insert(toRemove, i)
+        else
+            -- 逐渐缩小并变透明
+            local t = trail.life / trail.maxLife  -- 0→1
+            local s = trail.startScale * (1.0 - t)
+            if s < 0.01 then s = 0.01 end
+            trail.node.scale = Vector3(s, s, s)
+        end
+    end
+    -- 清理过期拖尾
+    for i = #toRemove, 1, -1 do
+        local idx = toRemove[i]
+        local trail = State.trailNodes[idx]
+        if trail.node then trail.node:Remove() end
+        table.remove(State.trailNodes, idx)
     end
 end
 
