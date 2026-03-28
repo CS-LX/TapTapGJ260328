@@ -83,7 +83,7 @@ function Player.HandlePlayingInput(dt)
     if input:GetKeyPress(KEY_SPACE) or input:GetKeyPress(KEY_UP) or input:GetKeyPress(KEY_W) then
         Player.Jump()
     end
-    if input:GetKeyPress(KEY_S) or input:GetKeyPress(KEY_DOWN) then
+    if input:GetKeyPress(KEY_S) or input:GetKeyPress(KEY_DOWN) or input:GetKeyPress(KEY_LSHIFT) or input:GetKeyPress(KEY_RSHIFT) then
         Player.Slide()
     end
 end
