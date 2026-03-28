@@ -58,6 +58,9 @@ State.deathFlashAlpha = 0
 
 -- 场景/峡谷相关
 State.biomeIndex = 1                    -- 当前场景索引 (1=City, 2=Desert, 3=Neon)
+State.biomeChangeCount = 0             -- 场景切换累计次数
+State.onBiomeChange = nil              -- 场景切换回调 function(count)
+State.onGameReset = nil                -- 游戏重置回调 function()
 State.segmentsInBiome = 0              -- 当前场景已生成的地面段数
 State.canyons = {}                      -- 活跃峡谷列表 { startZ, endZ }
 State.isAutoJumping = false             -- 是否在自动跳跃中
@@ -111,6 +114,7 @@ function State.ClearAll()
 
     -- 重置场景/峡谷状态
     State.biomeIndex = 1
+    State.biomeChangeCount = 0
     State.segmentsInBiome = 0
     State.canyons = {}
     State.isAutoJumping = false
@@ -125,6 +129,10 @@ function State.ClearAll()
     local firstBiome = require("Game.Config").BIOMES[1]
     State.fogCurrentColor = Color(firstBiome.fog.r, firstBiome.fog.g, firstBiome.fog.b)
     State.fogTargetColor  = Color(firstBiome.fog.r, firstBiome.fog.g, firstBiome.fog.b)
+
+    if State.onGameReset then
+        State.onGameReset()
+    end
 end
 
 function State.GameOver()

@@ -435,7 +435,13 @@ function World.UpdateGround(dt)
 
             -- 切换到下一个场景
             State.biomeIndex = (State.biomeIndex % #Config.BIOMES) + 1
+            State.biomeChangeCount = State.biomeChangeCount + 1
             State.segmentsInBiome = 0
+
+            -- 通知场景切换回调
+            if State.onBiomeChange then
+                State.onBiomeChange(State.biomeChangeCount)
+            end
 
             -- 设置雾色渐变目标
             local nextBiome = Config.BIOMES[State.biomeIndex]

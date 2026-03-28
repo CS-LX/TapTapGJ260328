@@ -61,11 +61,28 @@ function Start()
         })
         local ok, err = bgmPlayer:load("audio/BGM.midi.txt")
         if ok then
-            bgmPlayer:setTracks({1, 4})
+            bgmPlayer:setTracks({4})  -- 初始只播放第4轨道
             bgmPlayer:play()
             print("BGM: MIDI loaded, duration=" .. string.format("%.1f", bgmPlayer:getDuration()) .. "s")
         else
             print("BGM: Failed to load MIDI - " .. tostring(err))
+        end
+
+        -- 场景切换时递增音轨：第1次切换加第2轨，第2次加第3轨，第3次加第4轨
+        State.onBiomeChange = function(count)
+            if bgmPlayer and count <= 3 then
+                local track = 4 - count  -- count=1→track3, count=2→track2, count=3→track1
+                bgmPlayer:enableTrack(track)
+                print("BGM: Biome #" .. count .. " → enabled track " .. track)
+            end
+        end
+
+        -- 重新开始时重置为只播放第4轨道
+        State.onGameReset = function()
+            if bgmPlayer then
+                bgmPlayer:setTracks({4})
+                print("BGM: Reset to track 4")
+            end
         end
     end
 
