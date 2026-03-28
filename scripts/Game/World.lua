@@ -156,7 +156,7 @@ function World.SpawnObstacle(zPos)
         -- 栏板类障碍：50% 概率只占2轨道，留1轨道可变道躲避
         local barOffsetX = 0
         local barWidthRatio = 0.8  -- 满3轨道宽度比
-        if math.random() > 0.5 then
+        if math.random() > 0.25 then
             -- 2轨道：随机空出左或右
             local openLane = math.random(0, 1) == 0 and -1 or 1
             obs.openLane = openLane
