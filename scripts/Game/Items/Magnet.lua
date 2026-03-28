@@ -17,7 +17,7 @@ Magnet.SIZE       = 0.7    -- Billboard 尺寸
 Magnet.DURATION   = 8.0    -- 持续时间（秒）
 Magnet.RANGE      = 8.0    -- 吸引范围（米）
 Magnet.PULL_SPEED = 18.0   -- 吸引速度（米/秒）
-Magnet.TEXTURE     = "image/magnet_item_20260328065603.png"
+Magnet.TEXTURE     = "image/magnet_lowpoly_20260328171836.png"
 Magnet.LIGHT_COLOR = Color(0.2, 0.4, 1.0)
 
 -- 状态

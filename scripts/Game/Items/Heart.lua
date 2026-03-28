@@ -14,7 +14,7 @@ local Heart = {}
 Heart.INTERVAL    = 40.0   -- 出现间隔（米）
 Heart.HEIGHT      = 1.2    -- 浮空高度
 Heart.SIZE        = 0.7    -- Billboard 尺寸
-Heart.TEXTURE     = "image/heart_item_20260328065004.png"
+Heart.TEXTURE     = "image/heart_lowpoly_20260328171850.png"
 Heart.LIGHT_COLOR = Color(1.0, 0.3, 0.35)
 
 -- 状态

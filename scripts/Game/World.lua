@@ -343,7 +343,18 @@ local function DecorateOverhead(node, biomeIdx, vis)
 end
 
 function World.SpawnObstacle(zPos)
-    local obsType = math.random(1, 4)
+    -- OBS_BLOCK（贴图障碍）概率提高：40% block, 20% low, 20% high, 20% overhead
+    local roll = math.random(1, 10)
+    local obsType
+    if roll <= 4 then
+        obsType = Config.OBS_BLOCK
+    elseif roll <= 6 then
+        obsType = Config.OBS_LOW_BAR
+    elseif roll <= 8 then
+        obsType = Config.OBS_HIGH_BAR
+    else
+        obsType = Config.OBS_OVERHEAD
+    end
 
     local solidLanes = Holes.GetSolidLanes(zPos)
     if #solidLanes == 0 then return end
