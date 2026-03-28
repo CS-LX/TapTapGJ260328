@@ -2,11 +2,21 @@
 -- Game/World.lua — 场景创建、地面、障碍物、金币生成与更新
 -- ============================================================================
 
-local Config = require "Game.Config"
-local State  = require "Game.State"
-local Magnet = require "Game.Items.Magnet"
+local Config  = require "Game.Config"
+local State   = require "Game.State"
+local Magnet  = require "Game.Items.Magnet"
+local Canyon  = require "Game.World.Canyon"
+local Holes   = require "Game.World.Holes"
+local JumpPad = require "Game.World.JumpPad"
 
 local World = {}
+
+-- 导出子模块 API（保持对外接口不变）
+World.IsInCanyon    = Canyon.IsInCanyon
+World.SkipCanyon    = Canyon.SkipCanyon
+World.GetNextCanyon = Canyon.GetNextCanyon
+World.IsOverHole    = Holes.IsOverHole
+World.GetSolidLanes = Holes.GetSolidLanes
 
 -- ============================================================================
 -- 场景创建
@@ -115,9 +125,8 @@ end
 function World.SpawnObstacle(zPos)
     local obsType = math.random(1, 4)
 
-    -- 获取该位置的实心车道
-    local solidLanes = World.GetSolidLanes(zPos)
-    if #solidLanes == 0 then return end  -- 全是窟窿，不生成
+    local solidLanes = Holes.GetSolidLanes(zPos)
+    if #solidLanes == 0 then return end
 
     local lane = solidLanes[math.random(1, #solidLanes)]
 
@@ -133,10 +142,8 @@ function World.SpawnObstacle(zPos)
         model:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
         model.castShadows = true
 
-        -- 有时候占两条道（只选实心车道）
         if math.random() > 0.6 and #solidLanes >= 2 then
             local lane2 = lane
-            -- 从实心车道中选另一条
             for _, sl in ipairs(solidLanes) do
                 if sl ~= lane then
                     lane2 = sl
@@ -162,31 +169,25 @@ function World.SpawnObstacle(zPos)
 
         local solidCount = #solidLanes
         local barOffsetX = 0
-        local barWidthRatio = 0.8  -- 满3轨道宽度比
+        local barWidthRatio = 0.8
 
         if solidCount == 1 then
-            -- 只有1条实心车道：生成单轨窄栏板
             barOffsetX = solidLanes[1] * Config.LANE_WIDTH
             barWidthRatio = 0.25
-            -- 无 openLane，因为只占1轨
         elseif solidCount == 2 then
-            -- 2条实心车道：覆盖两条，留空的那条不是实心的
             local sumX = 0
             for _, sl in ipairs(solidLanes) do sumX = sumX + sl end
             barOffsetX = (sumX / 2) * Config.LANE_WIDTH
             barWidthRatio = 0.55
-            -- 25% 概率只覆盖1条，留另一条可躲避
             if math.random() < 0.25 then
                 local pickLane = solidLanes[math.random(1, 2)]
                 barOffsetX = pickLane * Config.LANE_WIDTH
                 barWidthRatio = 0.25
-                -- openLane = 另一条实心
                 for _, sl in ipairs(solidLanes) do
                     if sl ~= pickLane then obs.openLane = sl break end
                 end
             end
         else
-            -- 3条实心车道：原始逻辑
             if math.random() > 0.25 then
                 local openLane = math.random(0, 1) == 0 and -1 or 1
                 obs.openLane = openLane
@@ -215,7 +216,6 @@ function World.SpawnObstacle(zPos)
             model:SetMaterial(Config.CreatePBRMaterial(Color(0.2, 0.7, 0.3, 1.0), 0.2, 0.5))
             model.castShadows = true
 
-            -- 支撑柱
             for side = -1, 1, 2 do
                 local pillar = node:CreateChild("Pillar")
                 local parentScaleY = 0.5
@@ -237,7 +237,6 @@ function World.SpawnObstacle(zPos)
             model:SetMaterial(Config.CreatePBRMaterial(Color(0.7, 0.35, 0.8, 1.0), 0.4, 0.5))
             model.castShadows = true
 
-            -- 两侧支撑柱
             for side = -1, 1, 2 do
                 local pillar = node:CreateChild("Pillar")
                 local parentScaleY = 1.4
@@ -259,8 +258,7 @@ end
 -- ============================================================================
 
 function World.SpawnCoins(zPos)
-    -- 金币只在实心车道上生成
-    local solidLanes = World.GetSolidLanes(zPos)
+    local solidLanes = Holes.GetSolidLanes(zPos)
     if #solidLanes == 0 then return end
     local lane = solidLanes[math.random(1, #solidLanes)]
     local coinCount = math.random(3, 6)
@@ -303,9 +301,8 @@ function World.UpdateObstacles(dt)
     local playerZ = State.playerNode.position.z
 
     while State.nextObstacleZ < playerZ + Config.SPAWN_DISTANCE do
-        State.nextObstacleZ = World.SkipCanyon(State.nextObstacleZ, 30)
+        State.nextObstacleZ = Canyon.SkipCanyon(State.nextObstacleZ, 30)
         World.SpawnObstacle(State.nextObstacleZ)
-        -- 障碍间距随速度增大：速度越快间距越大，保证反应时间
         local speedRatio = State.runSpeed / Config.START_SPEED
         State.nextObstacleZ = State.nextObstacleZ + (Config.OBSTACLE_INTERVAL + math.random() * 8) * speedRatio
     end
@@ -354,7 +351,7 @@ function World.UpdateCoins(dt)
     local playerX = State.playerNode.position.x
 
     while State.nextCoinZ < playerZ + Config.SPAWN_DISTANCE do
-        State.nextCoinZ = World.SkipCanyon(State.nextCoinZ)
+        State.nextCoinZ = Canyon.SkipCanyon(State.nextCoinZ)
         World.SpawnCoins(State.nextCoinZ)
         State.nextCoinZ = State.nextCoinZ + Config.COIN_INTERVAL + math.random() * 5
     end
@@ -393,7 +390,7 @@ function World.UpdateCoins(dt)
                     local coinPos = coin.node.position
                     local toPlayerX = playerX - coinPos.x
                     local toPlayerZ = playerZ - coinPos.z
-                    local toPlayerY = 0.8 - coinPos.y  -- 吸向玩家身体中心
+                    local toPlayerY = 0.8 - coinPos.y
                     local dist = math.sqrt(toPlayerX * toPlayerX + toPlayerZ * toPlayerZ)
                     if dist < Magnet.RANGE and dist > 0.1 then
                         local speed = Magnet.PULL_SPEED * (1.0 - dist / Magnet.RANGE) + 5.0
@@ -447,56 +444,45 @@ end
 function World.UpdateGround(dt)
     local playerZ = State.playerNode.position.z
 
-    -- 找到最远的地面段尾端
     local lastSegEnd = 0
     for _, seg in ipairs(State.groundSegments) do
         local segEnd = seg.z + Config.TRACK_LENGTH / 2
         if segEnd > lastSegEnd then lastSegEnd = segEnd end
     end
 
-    -- 需要生成新段时
     while playerZ + Config.TRACK_LENGTH > lastSegEnd do
-        -- 检查是否需要峡谷（当前场景段数已满）
         if State.segmentsInBiome >= Config.BIOME_SEGMENT_COUNT then
-            -- 插入峡谷
             local canyonStartZ = lastSegEnd
             local canyonEndZ   = canyonStartZ + Config.CANYON_LENGTH
             local canyonData = { startZ = canyonStartZ, endZ = canyonEndZ }
             table.insert(State.canyons, canyonData)
 
-            -- 创建跳跃板视觉标识
-            World.CreateJumpPad(canyonData)
+            JumpPad.Create(canyonData)
 
-            -- 切换到下一个场景
             State.biomeIndex = (State.biomeIndex % #Config.BIOMES) + 1
             State.biomeChangeCount = State.biomeChangeCount + 1
             State.segmentsInBiome = 0
 
-            -- 通知场景切换回调
             if State.onBiomeChange then
                 State.onBiomeChange(State.biomeChangeCount)
             end
 
-            -- 设置雾色渐变目标
             local nextBiome = Config.BIOMES[State.biomeIndex]
             State.fogTargetColor = Color(nextBiome.fog.r, nextBiome.fog.g, nextBiome.fog.b)
 
-            -- 新段从峡谷后面开始
             lastSegEnd = canyonEndZ
             print("[Biome] Canyon at Z=" .. canyonStartZ .. ", switching to " .. nextBiome.name)
         end
 
-        -- 生成新地面段
         local biome = Config.BIOMES[State.biomeIndex]
         local newSegZ = lastSegEnd + Config.TRACK_LENGTH / 2
         World.CreateGroundSegment(newSegZ, biome)
         State.segmentsInBiome = State.segmentsInBiome + 1
         lastSegEnd = newSegZ + Config.TRACK_LENGTH / 2
 
-        -- 在新段上生成窟窿
         local segStartZ = newSegZ - Config.TRACK_LENGTH / 2
         local segEndZ   = newSegZ + Config.TRACK_LENGTH / 2
-        World.GenerateHolesForSegment(segStartZ, segEndZ, State.biomeIndex)
+        Holes.GenerateForSegment(segStartZ, segEndZ, State.biomeIndex)
     end
 
     -- 清理过远的地面段
@@ -523,16 +509,16 @@ function World.UpdateGround(dt)
         end
     end
 
-    -- 清理过远的峡谷记录（含跳跃板节点）
+    -- 清理过远的峡谷（含跳跃板）
     for i = #State.canyons, 1, -1 do
         if State.canyons[i].endZ < playerZ - 100 then
-            World.RemoveJumpPad(State.canyons[i])
+            JumpPad.Remove(State.canyons[i])
             table.remove(State.canyons, i)
         end
     end
 
     -- 清理过远的窟窿
-    World.CleanupHoles(playerZ)
+    Holes.Cleanup(playerZ)
 end
 
 -- ============================================================================
@@ -557,200 +543,13 @@ function World.UpdateScorePopups(dt)
 end
 
 -- ============================================================================
--- 峡谷工具函数
--- ============================================================================
-
---- 检查某个 Z 坐标是否在峡谷内
-function World.IsInCanyon(z)
-    for _, canyon in ipairs(State.canyons) do
-        if z >= canyon.startZ and z <= canyon.endZ then
-            return true
-        end
-    end
-    return false
-end
-
---- 如果 z 落在峡谷（含缓冲区）内，跳过到峡谷后方；否则原样返回
---- @param z number
---- @param buffer number|nil 缓冲距离（默认5米，障碍物建议传30）
-function World.SkipCanyon(z, buffer)
-    buffer = buffer or 5
-    for _, canyon in ipairs(State.canyons) do
-        if z >= canyon.startZ - buffer and z <= canyon.endZ + buffer then
-            return canyon.endZ + buffer + 5
-        end
-    end
-    return z
-end
-
---- 获取最近的前方峡谷信息（用于自动跳跃检测）
-function World.GetNextCanyon(playerZ)
-    local nearest = nil
-    for _, canyon in ipairs(State.canyons) do
-        if canyon.startZ > playerZ - 5 then
-            if nearest == nil or canyon.startZ < nearest.startZ then
-                nearest = canyon
-            end
-        end
-    end
-    return nearest
-end
-
--- ============================================================================
--- 地面窟窿系统
--- ============================================================================
-
---- 创建窟窿的视觉表现（暗色坑洞覆盖地面）
-function World.CreateHoleVisual(hole)
-    hole.nodes = {}
-    for _, lane in ipairs(hole.lanes) do
-        local holeLen = hole.zEnd - hole.zStart
-        local cx = lane * Config.LANE_WIDTH
-        local cz = (hole.zStart + hole.zEnd) / 2
-
-        -- 主体：深色凹陷
-        local node = State.scene:CreateChild("Hole")
-        node.position = Vector3(cx, -0.05, cz)
-        node.scale = Vector3(Config.LANE_WIDTH * 0.95, 0.2, holeLen)
-        local model = node:CreateComponent("StaticModel")
-        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        local mat = Material:new()
-        mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-        mat:SetShaderParameter("MatDiffColor", Variant(Color(0.02, 0.02, 0.05, 1.0)))
-        mat:SetShaderParameter("Metallic", Variant(0.0))
-        mat:SetShaderParameter("Roughness", Variant(1.0))
-        model:SetMaterial(mat)
-        model.castShadows = false
-        table.insert(hole.nodes, node)
-
-        -- 边缘发光条（前后两条）
-        local edgeMat = Material:new()
-        edgeMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-        edgeMat:SetShaderParameter("MatDiffColor", Variant(Color(1.0, 0.3, 0.1, 1.0)))
-        edgeMat:SetShaderParameter("MatEmissiveColor", Variant(Color(1.0, 0.2, 0.0)))
-        edgeMat:SetShaderParameter("Metallic", Variant(0.0))
-        edgeMat:SetShaderParameter("Roughness", Variant(0.5))
-        for _, zOff in ipairs({ hole.zStart, hole.zEnd }) do
-            local edge = State.scene:CreateChild("Hole")
-            edge.position = Vector3(cx, 0.02, zOff)
-            edge.scale = Vector3(Config.LANE_WIDTH * 0.95, 0.05, 0.15)
-            local em = edge:CreateComponent("StaticModel")
-            em:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            em:SetMaterial(edgeMat)
-            em.castShadows = false
-            table.insert(hole.nodes, edge)
-        end
-    end
-end
-
---- 为一段地面生成窟窿
---- @param segStartZ number 地面段起点 Z（= segZ - TRACK_LENGTH/2）
---- @param segEndZ number 地面段终点 Z
---- @param biomeIdx number 当前场景索引
-function World.GenerateHolesForSegment(segStartZ, segEndZ, biomeIdx)
-    local cfg = Config.HOLE_CONFIGS[biomeIdx]
-    if not cfg or not cfg.enabled then return end
-
-    -- 从 nextHoleZ 开始生成，直到超过 segEndZ
-    while State.nextHoleZ < segEndZ do
-        if State.nextHoleZ < segStartZ then
-            State.nextHoleZ = segStartZ + 10  -- 段头留10米缓冲
-        end
-
-        -- 跳过峡谷区域
-        State.nextHoleZ = World.SkipCanyon(State.nextHoleZ, 15)
-        if State.nextHoleZ >= segEndZ then break end
-
-        -- 随机窟窿长度
-        local holeLen = cfg.minLen + math.random() * (cfg.maxLen - cfg.minLen)
-
-        -- 确保窟窿不会超出段尾
-        if State.nextHoleZ + holeLen > segEndZ - 5 then break end
-
-        -- 随机选择受影响的车道
-        local lanes = {}
-        if cfg.maxLanes == 1 then
-            -- 单轨窟窿：随机一条边道（-1 或 1）
-            lanes = { math.random(0, 1) == 0 and -1 or 1 }
-        elseif cfg.maxLanes == 2 then
-            -- 最多2轨窟窿
-            if math.random() < 0.35 then
-                -- 35% 概率单轨
-                lanes = { math.random(0, 1) == 0 and -1 or 1 }
-            else
-                -- 65% 概率双轨（两侧，留中间）
-                lanes = { -1, 1 }
-            end
-        end
-
-        local hole = {
-            zStart = State.nextHoleZ,
-            zEnd   = State.nextHoleZ + holeLen,
-            lanes  = lanes,
-        }
-        World.CreateHoleVisual(hole)
-        table.insert(State.holes, hole)
-
-        -- 下一个窟窿间距
-        local interval = cfg.intervalMin + math.random() * (cfg.intervalMax - cfg.intervalMin)
-        State.nextHoleZ = State.nextHoleZ + holeLen + interval
-    end
-end
-
---- 检查 (z, lane) 是否在窟窿上
-function World.IsOverHole(z, lane)
-    for _, hole in ipairs(State.holes) do
-        if z >= hole.zStart and z <= hole.zEnd then
-            for _, hl in ipairs(hole.lanes) do
-                if hl == lane then return true end
-            end
-        end
-    end
-    return false
-end
-
---- 获取 z 位置的实心车道列表
-function World.GetSolidLanes(z)
-    local solid = { [-1] = true, [0] = true, [1] = true }
-    for _, hole in ipairs(State.holes) do
-        if z >= hole.zStart and z <= hole.zEnd then
-            for _, hl in ipairs(hole.lanes) do
-                solid[hl] = nil
-            end
-        end
-    end
-    local result = {}
-    for lane = -1, 1 do
-        if solid[lane] then
-            result[#result + 1] = lane
-        end
-    end
-    return result
-end
-
---- 清理过远的窟窿
-function World.CleanupHoles(playerZ)
-    for i = #State.holes, 1, -1 do
-        local hole = State.holes[i]
-        if hole.zEnd < playerZ - 50 then
-            if hole.nodes then
-                for _, n in ipairs(hole.nodes) do
-                    if n then n:Remove() end
-                end
-            end
-            table.remove(State.holes, i)
-        end
-    end
-end
-
--- ============================================================================
 -- 雾色渐变更新
 -- ============================================================================
 
 function World.UpdateFogTransition(dt)
     if State.zoneComponent == nil then return end
 
-    local speed = 1.5  -- 渐变速度
+    local speed = 1.5
     local cur = State.fogCurrentColor
     local tgt = State.fogTargetColor
 
@@ -770,189 +569,9 @@ function World.UpdateFogTransition(dt)
 end
 
 -- ============================================================================
--- 峡谷跳跃板 — 发光地板 + 向上箭头 + 粒子特效
+-- 跳跃板动效更新（委托给子模块）
 -- ============================================================================
 
---- 在峡谷触发点创建跳跃板视觉标识
-function World.CreateJumpPad(canyon)
-    local triggerZ = canyon.startZ - Config.CANYON_TRIGGER_OFFSET
-    canyon.padNodes = {}
-    canyon.padTriggerZ = triggerZ
-
-    -- 共用材质：发光青色
-    local glowMat = Material:new()
-    glowMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
-    glowMat:SetShaderParameter("MatDiffColor", Variant(Color(0.0, 0.9, 1.0, 0.5)))
-    glowMat:SetShaderParameter("MatEmissiveColor", Variant(Color(0.0, 1.0, 1.5)))
-    glowMat:SetShaderParameter("Metallic", Variant(0.9))
-    glowMat:SetShaderParameter("Roughness", Variant(0.1))
-
-    -- 共用材质：箭头绿色
-    local arrowMat = Material:new()
-    arrowMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
-    arrowMat:SetShaderParameter("MatDiffColor", Variant(Color(0.1, 1.0, 0.4, 0.75)))
-    arrowMat:SetShaderParameter("MatEmissiveColor", Variant(Color(0.0, 1.2, 0.4)))
-    arrowMat:SetShaderParameter("Metallic", Variant(0.5))
-    arrowMat:SetShaderParameter("Roughness", Variant(0.2))
-
-    -- === 1. 发光主地板 ===
-    local pad = State.scene:CreateChild("JumpPadFloor")
-    pad.position = Vector3(0, 0.06, triggerZ)
-    pad.scale = Vector3(Config.TRACK_WIDTH * 0.85, 0.08, 3.0)
-    local padModel = pad:CreateComponent("StaticModel")
-    padModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    padModel:SetMaterial(glowMat)
-    padModel.castShadows = false
-    table.insert(canyon.padNodes, { node = pad, kind = "floor" })
-
-    -- === 2. 两条边缘光带 ===
-    for side = -1, 1, 2 do
-        local edge = State.scene:CreateChild("JumpPadEdge")
-        edge.position = Vector3(side * Config.TRACK_WIDTH * 0.38, 0.08, triggerZ)
-        edge.scale = Vector3(0.15, 0.1, 3.5)
-        local em = edge:CreateComponent("StaticModel")
-        em:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        em:SetMaterial(arrowMat)
-        em.castShadows = false
-        table.insert(canyon.padNodes, { node = edge, kind = "edge" })
-    end
-
-    -- === 3. 两侧光柱 ===
-    for side = -1, 1, 2 do
-        local pillar = State.scene:CreateChild("JumpPadPillar")
-        pillar.position = Vector3(side * Config.TRACK_WIDTH * 0.42, 2.0, triggerZ)
-        pillar.scale = Vector3(0.15, 4.0, 0.15)
-        local pm = pillar:CreateComponent("StaticModel")
-        pm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        pm:SetMaterial(glowMat)
-        pm.castShadows = false
-        table.insert(canyon.padNodes, { node = pillar, kind = "pillar", side = side })
-    end
-
-    -- === 4. 中央点光源 ===
-    local lightNode = State.scene:CreateChild("JumpPadLight")
-    lightNode.position = Vector3(0, 3.0, triggerZ)
-    local light = lightNode:CreateComponent("Light")
-    light.lightType = LIGHT_POINT
-    light.range = 12.0
-    light.color = Color(0.0, 0.9, 1.0)
-    light.brightness = 3.0
-    light.castShadows = false
-    table.insert(canyon.padNodes, { node = lightNode, kind = "light" })
-
-    -- === 5. 向上箭头（4 个人字形 chevron，分层堆叠） ===
-    for i = 1, 4 do
-        local arrowNode = State.scene:CreateChild("JumpPadArrow")
-        arrowNode.position = Vector3(0, 0.6 + (i - 1) * 1.1, triggerZ)
-
-        -- 左臂 "/"
-        local left = arrowNode:CreateChild("L")
-        left.position = Vector3(-0.4, 0, 0)
-        left.rotation = Quaternion(0, 0, -35)
-        left.scale = Vector3(0.12, 0.9, 0.12)
-        local lm = left:CreateComponent("StaticModel")
-        lm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        lm:SetMaterial(arrowMat)
-        lm.castShadows = false
-
-        -- 右臂 "\"
-        local right = arrowNode:CreateChild("R")
-        right.position = Vector3(0.4, 0, 0)
-        right.rotation = Quaternion(0, 0, 35)
-        right.scale = Vector3(0.12, 0.9, 0.12)
-        local rm = right:CreateComponent("StaticModel")
-        rm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        rm:SetMaterial(arrowMat)
-        rm.castShadows = false
-
-        table.insert(canyon.padNodes, { node = arrowNode, kind = "arrow", idx = i })
-    end
-
-    -- === 6. 上升粒子（小方块不断上浮） ===
-    for i = 1, 10 do
-        local particle = State.scene:CreateChild("JumpPadParticle")
-        local px = (math.random() - 0.5) * Config.TRACK_WIDTH * 0.7
-        local py = math.random() * 4.0
-        particle.position = Vector3(px, py, triggerZ + (math.random() - 0.5) * 2.0)
-        local s = 0.06 + math.random() * 0.07
-        particle.scale = Vector3(s, s, s)
-        local pModel = particle:CreateComponent("StaticModel")
-        pModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        pModel:SetMaterial(glowMat)
-        pModel.castShadows = false
-        table.insert(canyon.padNodes, {
-            node = particle, kind = "particle",
-            baseX = px,
-            speed = 1.5 + math.random() * 2.5,
-            phase = math.random() * 6.28,
-            startScale = s,
-        })
-    end
-end
-
---- 更新所有跳跃板的动效
-function World.UpdateJumpPads(dt)
-    local elapsed = GetTime():GetElapsedTime()
-
-    for _, canyon in ipairs(State.canyons) do
-        if not canyon.padNodes then goto continue end
-        local tz = canyon.padTriggerZ
-
-        for _, pad in ipairs(canyon.padNodes) do
-            if not pad.node then goto next end
-
-            if pad.kind == "arrow" then
-                -- 箭头上下浮动（相位错开）
-                local baseY = 0.6 + (pad.idx - 1) * 1.1
-                local floatY = math.sin(elapsed * 3.0 + pad.idx * 0.9) * 0.35
-                pad.node.position = Vector3(0, baseY + floatY, tz)
-
-            elseif pad.kind == "light" then
-                -- 光源脉冲
-                local light = pad.node:GetComponent("Light")
-                if light then
-                    light.brightness = 2.5 + math.sin(elapsed * 4.0) * 1.5
-                end
-
-            elseif pad.kind == "pillar" then
-                -- 光柱高度呼吸
-                local breathe = 1.0 + math.sin(elapsed * 2.5 + pad.side) * 0.15
-                pad.node.scale = Vector3(0.15, 4.0 * breathe, 0.15)
-
-            elseif pad.kind == "particle" then
-                -- 粒子上浮，到顶重置
-                local pos = pad.node.position
-                local y = pos.y + pad.speed * dt
-                if y > 5.0 then y = 0.1 end
-                -- 轻微水平摇摆
-                local xOff = math.sin(elapsed * 2.0 + pad.phase) * 0.3
-                pad.node.position = Vector3(pad.baseX + xOff, y, tz + math.sin(elapsed + pad.phase) * 0.4)
-                -- 上升中渐大，到顶渐小
-                local alpha = 1.0
-                if y < 0.5 then alpha = y / 0.5
-                elseif y > 4.0 then alpha = (5.0 - y) end
-                local s = pad.startScale * (0.5 + alpha * 0.5)
-                pad.node.scale = Vector3(s, s, s)
-
-            elseif pad.kind == "floor" then
-                -- 地板脉冲呼吸（缩放微变）
-                local pulse = 1.0 + math.sin(elapsed * 3.5) * 0.06
-                pad.node.scale = Vector3(Config.TRACK_WIDTH * 0.85 * pulse, 0.08, 3.0)
-            end
-
-            ::next::
-        end
-        ::continue::
-    end
-end
-
---- 清理峡谷跳跃板节点
-function World.RemoveJumpPad(canyon)
-    if not canyon.padNodes then return end
-    for _, pad in ipairs(canyon.padNodes) do
-        if pad.node then pad.node:Remove() end
-    end
-    canyon.padNodes = nil
-end
+World.UpdateJumpPads = JumpPad.UpdateAll
 
 return World
