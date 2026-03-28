@@ -218,41 +218,15 @@ function GameUI.DrawMenu(w, h)
     nvgText(vg, w/2 + sloganSlide, sloganY, MENU_SLOGANS[sloganIdx])
 
     -- ================================================================
-    -- 开始按钮（超级脉冲 + 彩虹边框 + 更大）
+    -- 开始提示文字（闪烁呼吸）
     -- ================================================================
-    local btnCenterY = h * 0.60
-    local breathe = 1.0 + math.sin(t * 4.0) * 0.08
-    local btnFontSize = 32 * breathe
-    local pulseAlpha = math.floor((0.5 + math.sin(t * 4.0) * 0.4) * 255)
-
-    local ringW = 260 * breathe
-    local ringH = 58 * breathe
-
-    -- 外层彩虹光环
-    local ringR, ringG, ringB = GameUI.HSVtoRGB((hueShift + 180) % 360, 0.7, 1.0)
-    nvgBeginPath(vg)
-    nvgRoundedRect(vg, w/2 - ringW/2 - 3, btnCenterY - ringH/2 - 3, ringW + 6, ringH + 6, ringH/2 + 3)
-    nvgStrokeColor(vg, nvgRGBA(ringR, ringG, ringB, math.floor(pulseAlpha * 0.6)))
-    nvgStrokeWidth(vg, 3)
-    nvgStroke(vg)
-
-    -- 主按钮
-    nvgBeginPath(vg)
-    nvgRoundedRect(vg, w/2 - ringW/2, btnCenterY - ringH/2, ringW, ringH, ringH/2)
-    nvgStrokeColor(vg, nvgRGBA(255, 220, 50, pulseAlpha))
-    nvgStrokeWidth(vg, 2.5)
-    nvgStroke(vg)
-    local btnGrad = nvgLinearGradient(vg, w/2, btnCenterY - ringH/2, w/2, btnCenterY + ringH/2,
-        nvgRGBA(255, 200, 50, 70), nvgRGBA(255, 100, 20, 40))
-    nvgFillPaint(vg, btnGrad)
-    nvgFill(vg)
-
-    -- 按钮文字（阴影 + 白字）
-    nvgFontSize(vg, btnFontSize)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, 200))
-    nvgText(vg, w/2 + 2, btnCenterY + 2, "🔥 点击开始 🔥")
-    nvgFillColor(vg, nvgRGBA(255, 255, 255, 255))
-    nvgText(vg, w/2, btnCenterY, "🔥 点击开始 🔥")
+    local promptY = h * 0.60
+    local promptAlpha = math.floor(140 + math.sin(t * 3.5) * 115)
+    nvgFontSize(vg, 26)
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(promptAlpha * 0.5)))
+    nvgText(vg, w/2 + 1, promptY + 1, "按下空格，来一局")
+    nvgFillColor(vg, nvgRGBA(255, 255, 255, promptAlpha))
+    nvgText(vg, w/2, promptY, "按下空格，来一局")
 
     -- ================================================================
     -- 最高分（金色奖杯 + 闪烁星星）
@@ -269,12 +243,12 @@ function GameUI.DrawMenu(w, h)
     end
 
     -- ================================================================
-    -- 底部操作指南（带呼吸淡入淡出）
+    -- 底部提示（淡淡一行，不喧宾夺主）
     -- ================================================================
-    local guideAlpha = math.floor(100 + math.sin(t * 2) * 50)
-    nvgFontSize(vg, 14)
-    nvgFillColor(vg, nvgRGBA(200, 200, 220, guideAlpha))
-    nvgText(vg, w/2, h - 35, "↔ 切道  |  ↑/空格 跳跃  |  ↓ 下蹲  |  触屏滑动操作")
+    local guideAlpha = math.floor(80 + math.sin(t * 2) * 40)
+    nvgFontSize(vg, 13)
+    nvgFillColor(vg, nvgRGBA(180, 180, 200, guideAlpha))
+    nvgText(vg, w/2, h - 30, "触屏滑动同样可以操作")
 
     -- ================================================================
     -- BGM 开关按钮（右上角）
@@ -721,34 +695,19 @@ function GameUI.DrawGameOver(w, h)
     end
 
     -- ================================================================
-    -- 重新开始按钮（1.5秒后出现，脉冲呼吸）
+    -- 重新开始提示文字（1.5秒后出现，闪烁呼吸）
     -- ================================================================
     if animT > 1.5 then
         local btnAlpha = math.floor(math.min(1, (animT - 1.5) * 3) * 255)
-        local btnCenterY = h * 0.82
-        local breathe = 1.0 + math.sin(t * 4) * 0.06
-        local btnFontSize = 24 * breathe
+        local promptY = h * 0.82
+        local promptFlicker = math.floor(140 + math.sin(t * 3.5) * 115)
+        local finalAlpha = math.floor(btnAlpha * promptFlicker / 255)
 
-        -- 按钮背景
-        local btnW = 240 * breathe
-        local btnH = 48 * breathe
-        nvgBeginPath(vg)
-        nvgRoundedRect(vg, w/2 - btnW/2, btnCenterY - btnH/2, btnW, btnH, btnH/2)
-        local btnGrad = nvgLinearGradient(vg, w/2, btnCenterY - btnH/2, w/2, btnCenterY + btnH/2,
-            nvgRGBA(80, 180, 255, math.floor(btnAlpha * 0.3)),
-            nvgRGBA(30, 100, 200, math.floor(btnAlpha * 0.2)))
-        nvgFillPaint(vg, btnGrad)
-        nvgFill(vg)
-        nvgStrokeColor(vg, nvgRGBA(100, 200, 255, math.floor(btnAlpha * 0.7)))
-        nvgStrokeWidth(vg, 2)
-        nvgStroke(vg)
-
-        -- 按钮文字
-        nvgFontSize(vg, btnFontSize)
-        nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(btnAlpha * 0.6)))
-        nvgText(vg, w/2 + 1, btnCenterY + 1, "🔄 再来一局！")
-        nvgFillColor(vg, nvgRGBA(255, 255, 255, btnAlpha))
-        nvgText(vg, w/2, btnCenterY, "🔄 再来一局！")
+        nvgFontSize(vg, 24)
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(finalAlpha * 0.5)))
+        nvgText(vg, w/2 + 1, promptY + 1, "按下空格，再来一局！")
+        nvgFillColor(vg, nvgRGBA(255, 255, 255, finalAlpha))
+        nvgText(vg, w/2, promptY, "按下空格，再来一局！")
     end
 
     nvgRestore(vg)
