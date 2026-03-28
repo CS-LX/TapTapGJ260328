@@ -75,6 +75,7 @@ local highScore_ = 0           -- 最高分
 -- 障碍物和金币对象池
 local obstacles_ = {}          -- 活跃障碍物列表
 local coinNodes_ = {}          -- 活跃金币列表
+local scorePopups_ = {}        -- 得分弹出动画
 local nextObstacleZ_ = 30.0   -- 下一个障碍物Z位置
 local nextCoinZ_ = 15.0       -- 下一个金币Z位置
 local groundSegments_ = {}    -- 地面段
@@ -436,6 +437,7 @@ function HandleUpdate(eventType, eventData)
         UpdateGround(dt)
         UpdateCamera(dt)
         UpdateScore(dt)
+        UpdateScorePopups(dt)
     elseif gameState_ == STATE_GAMEOVER then
         HandleGameOverInput(dt)
     end
@@ -504,6 +506,7 @@ function ClearAll()
         if coin.node then coin.node:Remove() end
     end
     coinNodes_ = {}
+    scorePopups_ = {}
 
     for _, seg in ipairs(groundSegments_) do
         if seg.node then seg.node:Remove() end
@@ -771,21 +774,61 @@ function UpdateCoins(dt)
     local toRemove = {}
     for i, coin in ipairs(coinNodes_) do
         if coin.node and not coin.collected then
-            coin.node:Rotate(Quaternion(0, 120 * dt, 0))
+            if coin.collecting then
+                -- 收集动画播放中
+                coin.collectTimer = coin.collectTimer + dt
+                local t = coin.collectTimer / 0.4  -- 0.4秒完成
 
-            local coinPos = coin.node.position
-            local dz = math.abs(coinPos.z - playerZ)
-            local dx = math.abs(coinPos.x - playerX)
-            if dz < 1.0 and dx < 1.0 then
-                coin.collected = true
-                coins_ = coins_ + 1
-                score_ = score_ + 50
-                coin.node:Remove()
-                coin.node = nil
-            end
+                if t >= 1.0 then
+                    -- 动画结束，移除
+                    coin.collected = true
+                    coin.node:Remove()
+                    coin.node = nil
+                else
+                    -- 上升
+                    local pos = coin.node.position
+                    pos.y = coin.collectOriginY + t * 2.5
+                    coin.node.position = pos
 
-            if coinPos.z < playerZ - CONFIG.DESPAWN_DISTANCE then
-                table.insert(toRemove, i)
+                    -- 缩放：先膨胀再缩小消失
+                    local s
+                    if t < 0.25 then
+                        s = 0.5 * (1.0 + t / 0.25 * 0.8)   -- 0.5 → 0.9
+                    else
+                        s = 0.9 * (1.0 - (t - 0.25) / 0.75) -- 0.9 → 0
+                    end
+                    coin.node.scale = Vector3(s, s, s)
+
+                    -- 快速旋转
+                    coin.node:Rotate(Quaternion(0, 720 * dt, 0))
+                end
+            else
+                -- 正常状态：慢速旋转 + 碰撞检测
+                coin.node:Rotate(Quaternion(0, 120 * dt, 0))
+
+                local coinPos = coin.node.position
+                local dz = math.abs(coinPos.z - playerZ)
+                local dx = math.abs(coinPos.x - playerX)
+                if dz < 1.0 and dx < 1.0 then
+                    -- 开始收集动画
+                    coin.collecting = true
+                    coin.collectTimer = 0.0
+                    coin.collectOriginY = coinPos.y
+                    coins_ = coins_ + 1
+                    score_ = score_ + 50
+
+                    -- 添加浮动得分文字
+                    table.insert(scorePopups_, {
+                        worldPos = Vector3(coinPos.x, coinPos.y, coinPos.z),
+                        baseY = coinPos.y + 0.5,
+                        timer = 0,
+                        duration = 0.8,
+                    })
+                end
+
+                if coinPos.z < playerZ - CONFIG.DESPAWN_DISTANCE then
+                    table.insert(toRemove, i)
+                end
             end
         elseif coin.collected then
             table.insert(toRemove, i)
@@ -838,6 +881,16 @@ function UpdateScore(dt)
     end
 
     score_ = math.floor(distanceTraveled_) + coins_ * 50
+end
+
+function UpdateScorePopups(dt)
+    for i = #scorePopups_, 1, -1 do
+        local popup = scorePopups_[i]
+        popup.timer = popup.timer + dt
+        if popup.timer >= popup.duration then
+            table.remove(scorePopups_, i)
+        end
+    end
 end
 
 -- ============================================================================
@@ -988,6 +1041,33 @@ function DrawHUD(w, h)
     nvgFontSize(nvgCtx_, 14)
     nvgFillColor(nvgCtx_, nvgRGBA(180, 180, 180, 180))
     nvgText(nvgCtx_, w - 20, 45, string.format("%.0f m", distanceTraveled_))
+
+    -- 浮动得分弹出文字
+    local camera = cameraNode_:GetComponent("Camera")
+    for _, popup in ipairs(scorePopups_) do
+        local t = popup.timer / popup.duration
+        local worldY = popup.baseY + popup.timer * 3.0
+        local worldP = Vector3(popup.worldPos.x, worldY, popup.worldPos.z)
+        local sp = camera:WorldToScreenPoint(worldP)
+        if sp.x >= 0 and sp.x <= 1 and sp.y >= 0 and sp.y <= 1 then
+            local sx = sp.x * w
+            local sy = sp.y * h
+
+            -- 缓出透明度
+            local alpha = math.floor((1.0 - t * t) * 255)
+            -- 字号从大到小
+            local fontSize = 26 * (1.0 - t * 0.3)
+
+            nvgFontSize(nvgCtx_, fontSize)
+            nvgTextAlign(nvgCtx_, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+            -- 阴影
+            nvgFillColor(nvgCtx_, nvgRGBA(0, 0, 0, math.floor(alpha * 0.5)))
+            nvgText(nvgCtx_, sx + 1, sy + 1, "+50")
+            -- 金色文字
+            nvgFillColor(nvgCtx_, nvgRGBA(255, 230, 50, alpha))
+            nvgText(nvgCtx_, sx, sy, "+50")
+        end
+    end
 end
 
 function DrawGameOver(w, h)
