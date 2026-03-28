@@ -94,7 +94,9 @@ function MidiPlayer.new(scene, options)
     self.sourcePool        = {}   -- 空闲 SoundSource 池
     self.activeSources     = {}   -- 活跃音源 { source, note, channel, gain }
     self.releasingSources  = {}   -- 正在淡出的音源 { source, gain }
-    self.fadeOutSpeed       = options.fadeOutSpeed or 25.0  -- gain 每秒衰减速度 (~50ms 淡出)
+    self.fadeOutSpeed       = options.fadeOutSpeed or 15.0  -- gain 每秒衰减速度 (~70ms 淡出)
+    self.fadeInSpeed        = options.fadeInSpeed or 80.0   -- gain 每秒增长速度 (~12ms 淡入)
+    self.fadingInSources   = {}   -- 正在淡入的音源 { source, currentGain, targetGain }
 
     -- 预创建音源池
     for i = 1, self.maxPolyphony do
@@ -246,8 +248,9 @@ function MidiPlayer:update(dt)
 
     self.elapsedTime = self.elapsedTime + dt * self.speed
 
-    -- 清理已结束的音源 & 处理淡出
+    -- 清理已结束的音源 & 处理淡入淡出
     self:cleanupSources()
+    self:fadeFadeInSources(dt)
     self:fadeReleasingSources(dt)
 
     -- 触发当前时间之前的所有事件
@@ -305,6 +308,20 @@ function MidiPlayer:handleNoteOn(evt)
         self.onNoteOn(evt.note, evt.velocity, evt.channel, evt.noteName)
     end
 
+    -- 同音符重触发：将同 note+channel 的旧音源移入淡出列表，避免叠加或硬停
+    for i = #self.activeSources, 1, -1 do
+        local info = self.activeSources[i]
+        if info.note == evt.note and info.channel == evt.channel then
+            if info.source then
+                self.releasingSources[#self.releasingSources + 1] = {
+                    source = info.source,
+                    gain   = info.gain or self.volume,
+                }
+            end
+            table.remove(self.activeSources, i)
+        end
+    end
+
     -- 控制复音数：池空时回收最老音源
     if #self.sourcePool == 0 then
         self:removeOldestSource()
@@ -333,17 +350,25 @@ function MidiPlayer:handleNoteOn(evt)
     -- 从池中取出音源
     local source = table.remove(self.sourcePool)
 
-    local gain = (evt.velocity / 127.0) * self.volume
+    local targetGain = (evt.velocity / 127.0) * self.volume
 
-    -- 确保音源干净后再播放
+    -- 从极小音量开始播放，通过淡入消除起始瞬态爆音
+    local startGain = 0.001
     source:Stop()
-    source:Play(sound, sound.frequency, gain)
+    source:Play(sound, sound.frequency, startGain)
+
+    -- 注册淡入
+    self.fadingInSources[#self.fadingInSources + 1] = {
+        source      = source,
+        currentGain = startGain,
+        targetGain  = targetGain,
+    }
 
     self.activeSources[#self.activeSources + 1] = {
         source  = source,
         note    = evt.note,
         channel = evt.channel,
-        gain    = gain,
+        gain    = targetGain,
     }
 end
 
@@ -397,9 +422,16 @@ function MidiPlayer:removeOldestSource()
             }
         end
     end
-    -- 如果淡出列表也满了，强制回收最老的淡出音源
+    -- 如果淡出列表也满了，回收增益最低的淡出音源（接近静音，硬停不可闻）
     if #self.sourcePool == 0 and #self.releasingSources > 0 then
-        local old = table.remove(self.releasingSources, 1)
+        local minIdx, minGain = 1, self.releasingSources[1].gain
+        for i = 2, #self.releasingSources do
+            if self.releasingSources[i].gain < minGain then
+                minIdx = i
+                minGain = self.releasingSources[i].gain
+            end
+        end
+        local old = table.remove(self.releasingSources, minIdx)
         old.source:Stop()
         self.sourcePool[#self.sourcePool + 1] = old.source
     end
@@ -413,7 +445,7 @@ function MidiPlayer:stopAllSources()
         end
     end
     self.activeSources = {}
-    -- 同时清理淡出列表
+    -- 清理淡出列表
     for _, info in ipairs(self.releasingSources) do
         if info.source then
             info.source:Stop()
@@ -421,6 +453,24 @@ function MidiPlayer:stopAllSources()
         end
     end
     self.releasingSources = {}
+    -- 清理淡入列表
+    self.fadingInSources = {}
+end
+
+--- 处理淡入中的音源（每帧调用）
+---@param dt number
+function MidiPlayer:fadeFadeInSources(dt)
+    for i = #self.fadingInSources, 1, -1 do
+        local info = self.fadingInSources[i]
+        info.currentGain = info.currentGain + self.fadeInSpeed * dt
+        if info.currentGain >= info.targetGain then
+            -- 淡入完毕，设为目标增益
+            info.source.gain = info.targetGain
+            table.remove(self.fadingInSources, i)
+        else
+            info.source.gain = info.currentGain
+        end
+    end
 end
 
 --- 处理淡出中的音源（每帧调用）
