@@ -20,10 +20,10 @@ local fadeSpeed = 2.0    -- 淡入淡出速度 (gain/秒)
 local sounds = {}           -- 缓存 Sound 资源
 
 local TRACKS = {
-    "audio/bgm_melody_1.ogg",
-    "audio/bgm_melody_2.ogg",
-    "audio/bgm_melody_3.ogg",
-    "audio/bgm_melody_4.ogg",
+    "audio/BGM/bgm_melody_1.ogg",
+    "audio/BGM/bgm_melody_2.ogg",
+    "audio/BGM/bgm_melody_3.ogg",
+    "audio/BGM/bgm_melody_4.ogg",
 }
 
 -- 各阶段对应的增益配置 [stage] = { track1, track2, track3, track4 }

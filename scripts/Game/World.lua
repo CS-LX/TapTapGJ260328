@@ -182,6 +182,130 @@ end
 -- 障碍物生成
 -- ============================================================================
 
+--- 给障碍物节点添加场景风格化装饰（子节点，自动随父节点删除）
+local function DecorateBlock(node, biomeIdx, vis)
+    local psx, psy, psz = node.scale.x, node.scale.y, node.scale.z
+
+    if biomeIdx == 1 then
+        -- Savanna: 木板顶盖 + 侧面条纹
+        local plank = node:CreateChild("Decor")
+        plank.position = Vector3(0, 0.5, 0)
+        plank.scale = Vector3(1.05, 0.06 / psy, 1.05)
+        local pm = plank:CreateComponent("StaticModel")
+        pm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        pm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
+        pm.castShadows = true
+        -- 侧面横条纹
+        for i = -1, 1, 2 do
+            local stripe = node:CreateChild("Decor")
+            stripe.position = Vector3(0, i * 0.15, 0.5)
+            stripe.scale = Vector3(1.02, 0.08 / psy, 0.02 / psz)
+            local sm = stripe:CreateComponent("StaticModel")
+            sm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            sm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
+            sm.castShadows = false
+        end
+
+    elseif biomeIdx == 2 then
+        -- Glacier: 冰锥尖角 + 顶部碎冰
+        local shard = node:CreateChild("Decor")
+        shard.position = Vector3(0.15, 0.5, 0.05)
+        shard.rotation = Quaternion(0, 25, 12)
+        shard.scale = Vector3(0.25 / psx, 0.5 / psy, 0.25 / psz)
+        local shm = shard:CreateComponent("StaticModel")
+        shm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+        shm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
+        shm.castShadows = true
+        -- 另一侧小冰锥
+        local shard2 = node:CreateChild("Decor")
+        shard2.position = Vector3(-0.2, 0.5, -0.1)
+        shard2.rotation = Quaternion(0, -40, -8)
+        shard2.scale = Vector3(0.18 / psx, 0.35 / psy, 0.18 / psz)
+        local shm2 = shard2:CreateComponent("StaticModel")
+        shm2:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+        shm2:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
+        shm2.castShadows = true
+
+    elseif biomeIdx == 3 then
+        -- Cliffs: 苔藓覆盖顶面 + 小石块
+        local moss = node:CreateChild("Decor")
+        moss.position = Vector3(0, 0.5, 0)
+        moss.scale = Vector3(1.02, 0.05 / psy, 1.02)
+        local mm = moss:CreateComponent("StaticModel")
+        mm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        mm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
+        mm.castShadows = false
+        -- 小碎石
+        local pebble = node:CreateChild("Decor")
+        pebble.position = Vector3(0.3, 0.5, 0.2)
+        pebble.rotation = Quaternion(15, 40, 0)
+        pebble.scale = Vector3(0.15 / psx, 0.10 / psy, 0.12 / psz)
+        local pbm = pebble:CreateComponent("StaticModel")
+        pbm:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+        pbm:SetMaterial(Config.CreatePBRMaterial(Color(0.48, 0.42, 0.35, 1.0), 0.0, 0.9))
+        pbm.castShadows = false
+    end
+end
+
+--- 给 overhead/高栏添加场景装饰
+local function DecorateOverhead(node, biomeIdx, vis)
+    local psx, psy, psz = node.scale.x, node.scale.y, node.scale.z
+
+    if biomeIdx == 1 then
+        -- Savanna: 底部草帘（前后各一排细条）
+        for zSide = -1, 1, 2 do
+            for j = 1, 3 do
+                local straw = node:CreateChild("Decor")
+                local xOff = (j - 2) * 0.25
+                straw.position = Vector3(xOff, -0.5, zSide * 0.5)
+                straw.scale = Vector3(0.06 / psx, 0.15 / psy, 0.02 / psz)
+                local sm = straw:CreateComponent("StaticModel")
+                sm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                sm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc or vis.overhead))
+                sm.castShadows = false
+            end
+        end
+
+    elseif biomeIdx == 2 then
+        -- Glacier: 底部悬挂冰锥
+        for j = 1, 4 do
+            local icicle = node:CreateChild("Decor")
+            local xOff = (j - 2.5) * 0.22
+            icicle.position = Vector3(xOff, -0.5, (math.random() - 0.5) * 0.6)
+            icicle.rotation = Quaternion(180, 0, math.random() * 10 - 5)
+            local iciH = 0.15 + math.random() * 0.20
+            icicle.scale = Vector3(0.05 / psx, iciH / psy, 0.05 / psz)
+            local im = icicle:CreateComponent("StaticModel")
+            im:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+            im:SetMaterial(Config.CreateObsMaterial(vis.blockAcc or {
+                color = Color(0.65, 0.82, 0.95, 1.0), m = 0.35, r = 0.10,
+                emissive = Color(0.06, 0.15, 0.30)
+            }))
+            im.castShadows = false
+        end
+
+    elseif biomeIdx == 3 then
+        -- Cliffs: 顶部草皮 + 侧面藤蔓
+        local grass = node:CreateChild("Decor")
+        grass.position = Vector3(0, 0.5, 0)
+        grass.scale = Vector3(1.02, 0.04 / psy, 1.02)
+        local gm = grass:CreateComponent("StaticModel")
+        gm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        gm:SetMaterial(Config.CreatePBRMaterial(Color(0.30, 0.52, 0.22, 1.0), 0.0, 0.85))
+        gm.castShadows = false
+        -- 侧面垂挂藤蔓
+        for side = -1, 1, 2 do
+            local vine = node:CreateChild("Decor")
+            vine.position = Vector3(side * 0.48, -0.1, 0)
+            vine.scale = Vector3(0.03 / psx, 0.4 / psy, 0.15 / psz)
+            local vm = vine:CreateComponent("StaticModel")
+            vm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            vm:SetMaterial(Config.CreatePBRMaterial(Color(0.20, 0.42, 0.15, 1.0), 0.0, 0.88))
+            vm.castShadows = false
+        end
+    end
+end
+
 function World.SpawnObstacle(zPos)
     local obsType = math.random(1, 4)
 
@@ -193,14 +317,18 @@ function World.SpawnObstacle(zPos)
     local node = State.scene:CreateChild("Obstacle")
     local obs = { node = node, z = zPos, obsType = obsType, lane = lane }
 
+    -- 获取当前场景障碍物视觉配置
+    local vis = Config.OBSTACLE_VISUALS[State.biomeIndex]
+
     if obsType == Config.OBS_BLOCK then
         obs.damage = 1
         node.position = Vector3(lane * Config.LANE_WIDTH, 0.6, zPos)
         node.scale = Vector3(1.8, 1.2, 0.8)
         local model = node:CreateComponent("StaticModel")
         model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        model:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
+        model:SetMaterial(Config.CreateObsMaterial(vis.block))
         model.castShadows = true
+        DecorateBlock(node, State.biomeIndex, vis)
 
         if math.random() > 0.6 and #solidLanes >= 2 then
             local lane2 = lane
@@ -216,8 +344,9 @@ function World.SpawnObstacle(zPos)
                 node2.scale = Vector3(1.8, 1.2, 0.8)
                 local model2 = node2:CreateComponent("StaticModel")
                 model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                model2:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
+                model2:SetMaterial(Config.CreateObsMaterial(vis.block))
                 model2.castShadows = true
+                DecorateBlock(node2, State.biomeIndex, vis)
                 obs.extraNode = node2
                 obs.lane2 = lane2
             end
@@ -263,7 +392,7 @@ function World.SpawnObstacle(zPos)
             node.scale = Vector3(Config.TRACK_WIDTH * barWidthRatio, 0.8, 0.3)
             local model = node:CreateComponent("StaticModel")
             model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreatePBRMaterial(Color(0.9, 0.6, 0.1, 1.0), 0.5, 0.3))
+            model:SetMaterial(Config.CreateObsMaterial(vis.lowBar))
             model.castShadows = true
 
         elseif obsType == Config.OBS_HIGH_BAR then
@@ -273,10 +402,9 @@ function World.SpawnObstacle(zPos)
             node.scale = Vector3(barW, 0.5, 0.3)
             local model = node:CreateComponent("StaticModel")
             model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreatePBRMaterial(Color(0.2, 0.7, 0.3, 1.0), 0.2, 0.5))
+            model:SetMaterial(Config.CreateObsMaterial(vis.highBar))
             model.castShadows = true
 
-            local pillarColor = Color(0.5, 0.5, 0.5, 1.0)
             for side = -1, 1, 2 do
                 local pillar = node:CreateChild("Pillar")
                 local parentScaleY = 0.5
@@ -284,7 +412,7 @@ function World.SpawnObstacle(zPos)
                 pillar.scale = Vector3(0.1 / barW, 2.6 / parentScaleY, 0.1 / 0.3)
                 local pillarModel = pillar:CreateComponent("StaticModel")
                 pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                pillarModel:SetMaterial(Config.CreatePBRMaterial(pillarColor, 0.8, 0.3))
+                pillarModel:SetMaterial(Config.CreateObsMaterial(vis.pillar))
                 pillarModel.castShadows = true
             end
 
@@ -295,10 +423,10 @@ function World.SpawnObstacle(zPos)
             node.scale = Vector3(barW, 1.4, 1.2)
             local model = node:CreateComponent("StaticModel")
             model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreatePBRMaterial(Color(0.7, 0.35, 0.8, 1.0), 0.4, 0.5))
+            model:SetMaterial(Config.CreateObsMaterial(vis.overhead))
             model.castShadows = true
+            DecorateOverhead(node, State.biomeIndex, vis)
 
-            local oPillarColor = Color(0.5, 0.25, 0.6, 1.0)
             for side = -1, 1, 2 do
                 local pillar = node:CreateChild("Pillar")
                 local parentScaleY = 1.4
@@ -306,7 +434,7 @@ function World.SpawnObstacle(zPos)
                 pillar.scale = Vector3(0.15 / barW, 1.6 / parentScaleY, 0.15 / 1.2)
                 local pillarModel = pillar:CreateComponent("StaticModel")
                 pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                pillarModel:SetMaterial(Config.CreatePBRMaterial(oPillarColor, 0.6, 0.4))
+                pillarModel:SetMaterial(Config.CreateObsMaterial(vis.oPillar))
                 pillarModel.castShadows = true
             end
         end
