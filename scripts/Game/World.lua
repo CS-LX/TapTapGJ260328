@@ -362,7 +362,7 @@ function World.SpawnObstacle(zPos)
     local lane = solidLanes[math.random(1, #solidLanes)]
 
     local node = State.scene:CreateChild("Obstacle")
-    local obs = { node = node, z = zPos, obsType = obsType, lane = lane }
+    local obs = { node = node, z = zPos, obsType = obsType, lane = lane, biome = State.biomeIndex }
 
     -- 获取当前场景障碍物视觉配置
     local vis = Config.OBSTACLE_VISUALS[State.biomeIndex]
@@ -798,6 +798,14 @@ function World.UpdateObstacles(dt)
     local toRemove = {}
     for i, obs in ipairs(State.obstacles) do
         local obsZ = obs.z
+
+        -- 玩家刚跳过企鹅时播放音效
+        if not obs.passed and obsZ < playerZ - 1.0 then
+            obs.passed = true
+            if not obs.hit and obs.obsType == Config.OBS_BLOCK and obs.biome == 2 then
+                SFX.Play("gugugaga.ogg", 0.25)
+            end
+        end
 
         if obsZ < playerZ - Config.DESPAWN_DISTANCE then
             table.insert(toRemove, i)
