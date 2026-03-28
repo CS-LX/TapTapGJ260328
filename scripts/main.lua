@@ -23,6 +23,7 @@ local nvgCtx_ = nil
 local STATE_MENU = 0
 local STATE_PLAYING = 1
 local STATE_GAMEOVER = 2
+local STATE_DYING = 3
 local gameState_ = STATE_MENU
 
 -- 游戏配置
@@ -79,6 +80,15 @@ local scorePopups_ = {}        -- 得分弹出动画
 local nextObstacleZ_ = 30.0   -- 下一个障碍物Z位置
 local nextCoinZ_ = 15.0       -- 下一个金币Z位置
 local groundSegments_ = {}    -- 地面段
+
+-- 死亡动画相关
+local deathTimer_ = 0.0        -- 死亡动画计时
+local deathDuration_ = 1.5     -- 死亡动画时长
+local deathVelY_ = 0.0         -- 死亡弹飞Y速度
+local deathVelZ_ = 0.0         -- 死亡后退Z速度
+local deathRotX_ = 0.0         -- 翻滚累积角度
+local deathRotZ_ = 0.0         -- 侧翻累积角度
+local deathFlashAlpha_ = 0     -- 红色闪屏透明度
 
 -- 动画相关
 local playerRunAngle_ = 0.0   -- 跑步动画角度
@@ -437,6 +447,10 @@ function HandleUpdate(eventType, eventData)
         UpdateGround(dt)
         UpdateCamera(dt)
         UpdateScore(dt)
+        UpdateScorePopups(dt)
+    elseif gameState_ == STATE_DYING then
+        UpdateDeath(dt)
+        UpdateCamera(dt)
         UpdateScorePopups(dt)
     elseif gameState_ == STATE_GAMEOVER then
         HandleGameOverInput(dt)
@@ -914,6 +928,15 @@ function UpdateCamera(dt)
         camPos.z + (targetPos.z - camPos.z) * 8.0 * dt
     )
 
+    -- 死亡时相机震动
+    if gameState_ == STATE_DYING and deathTimer_ < 0.6 then
+        local intensity = (1.0 - deathTimer_ / 0.6) * 0.5
+        local shakeX = (math.random() - 0.5) * 2 * intensity
+        local shakeY = (math.random() - 0.5) * 2 * intensity
+        local pos = cameraNode_.position
+        cameraNode_.position = Vector3(pos.x + shakeX, pos.y + shakeY, pos.z)
+    end
+
     local lookTarget = Vector3(
         playerPos.x * 0.2,
         playerPos.y + 1.5,
@@ -927,11 +950,43 @@ end
 -- ============================================================================
 
 function GameOver()
-    gameState_ = STATE_GAMEOVER
+    gameState_ = STATE_DYING
+    deathTimer_ = 0.0
+    deathVelY_ = 8.0       -- 向上弹飞
+    deathVelZ_ = -4.0      -- 向后弹
+    deathRotX_ = 0.0
+    deathRotZ_ = 0.0
+    deathFlashAlpha_ = 255  -- 红色闪屏满值
+
     if score_ > highScore_ then
         highScore_ = score_
     end
     print("Game Over! Score: " .. score_ .. " | High Score: " .. highScore_)
+end
+
+function UpdateDeath(dt)
+    deathTimer_ = deathTimer_ + dt
+
+    -- 玩家弹飞物理
+    local pos = playerNode_.position
+    deathVelY_ = deathVelY_ + CONFIG.GRAVITY * 0.6 * dt  -- 较轻的重力，飞得更久
+    pos.y = pos.y + deathVelY_ * dt
+    pos.z = pos.z + deathVelZ_ * dt
+    if pos.y < -2.0 then pos.y = -2.0 end  -- 不要掉太深
+    playerNode_.position = pos
+
+    -- 翻滚旋转
+    deathRotX_ = deathRotX_ + 360 * dt   -- 前翻
+    deathRotZ_ = deathRotZ_ + 120 * dt   -- 侧翻
+    playerNode_.rotation = Quaternion(deathRotX_, deathRotZ_, 0)
+
+    -- 红色闪屏衰减
+    deathFlashAlpha_ = math.max(0, deathFlashAlpha_ - 400 * dt)
+
+    -- 动画结束，进入 GameOver 画面
+    if deathTimer_ >= deathDuration_ then
+        gameState_ = STATE_GAMEOVER
+    end
 end
 
 function HandleGameOverInput(dt)
@@ -957,6 +1012,9 @@ function HandleNanoVGRender(eventType, eventData)
         DrawMenu(physW, physH)
     elseif gameState_ == STATE_PLAYING then
         DrawHUD(physW, physH)
+    elseif gameState_ == STATE_DYING then
+        DrawHUD(physW, physH)
+        DrawDeathEffect(physW, physH)
     elseif gameState_ == STATE_GAMEOVER then
         DrawGameOver(physW, physH)
     end
@@ -1068,6 +1126,24 @@ function DrawHUD(w, h)
             nvgText(nvgCtx_, sx, sy, "+50")
         end
     end
+end
+
+function DrawDeathEffect(w, h)
+    -- 红色闪屏（撞击瞬间最强，快速衰减）
+    if deathFlashAlpha_ > 0 then
+        nvgBeginPath(nvgCtx_)
+        nvgRect(nvgCtx_, 0, 0, w, h)
+        nvgFillColor(nvgCtx_, nvgRGBA(200, 30, 20, math.floor(deathFlashAlpha_)))
+        nvgFill(nvgCtx_)
+    end
+
+    -- 渐入的暗角效果
+    local t = deathTimer_ / deathDuration_
+    local vignetteAlpha = math.floor(t * 120)
+    nvgBeginPath(nvgCtx_)
+    nvgRect(nvgCtx_, 0, 0, w, h)
+    nvgFillColor(nvgCtx_, nvgRGBA(0, 0, 0, vignetteAlpha))
+    nvgFill(nvgCtx_)
 end
 
 function DrawGameOver(w, h)
