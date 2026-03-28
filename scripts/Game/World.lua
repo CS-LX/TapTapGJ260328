@@ -234,7 +234,9 @@ function World.UpdateObstacles(dt)
     while State.nextObstacleZ < playerZ + Config.SPAWN_DISTANCE do
         State.nextObstacleZ = World.SkipCanyon(State.nextObstacleZ)
         World.SpawnObstacle(State.nextObstacleZ)
-        State.nextObstacleZ = State.nextObstacleZ + Config.OBSTACLE_INTERVAL + math.random() * 8
+        -- 障碍间距随速度增大：速度越快间距越大，保证反应时间
+        local speedRatio = State.runSpeed / Config.START_SPEED
+        State.nextObstacleZ = State.nextObstacleZ + (Config.OBSTACLE_INTERVAL + math.random() * 8) * speedRatio
     end
 
     local toRemove = {}
