@@ -47,7 +47,7 @@ function BGM.Init(scene, opts)
     for i = 1, 4 do
         local sound = cache:GetResource("Sound", TRACKS[i])
         if sound then
-            sound.looped = false  -- 不用引擎自带loop，手动同步重启
+            sound.looped = true   -- 引擎原生循环，保证不断播
             local node = scene:CreateChild("BGM_Track" .. i)
             local source = node:CreateComponent("SoundSource")
             source.soundType = SOUND_MUSIC
