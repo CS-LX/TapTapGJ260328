@@ -565,7 +565,7 @@ function World.UpdateGround(dt)
     local children = State.scene:GetChildren()
     for _, child in ipairs(children) do
         local name = child.name
-        if (name == "LaneLine" or name == "CanyonMarker"
+        if (name == "Ground" or name == "LaneLine" or name == "CanyonMarker"
             or name == "Scenery" or name == "SideTerrain")
             and child.position.z < playerZ - 50 - Config.TRACK_LENGTH then
             child:Remove()

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Game/World/Holes.lua — 地面窟窿系统
+-- Game/World/Holes.lua — 地面窟窿系统（真实开洞 + 背面渲染内壁洞窟）
 -- ============================================================================
 
 local Config = require "Game.Config"
@@ -9,6 +9,198 @@ local State  = require "Game.State"
 local Canyon = require "Game.World.Canyon"
 
 local Holes = {}
+
+--- 创建只显示内壁的 PBR 材质（剔除正面，只渲染背面）
+local function CreateInnerWallMaterial(color, metallic, roughness, emissiveColor)
+    local mat = Material:new()
+    mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
+    mat:SetShaderParameter("MatDiffColor", Variant(color))
+    mat:SetShaderParameter("Metallic", Variant(metallic or 0.0))
+    mat:SetShaderParameter("Roughness", Variant(roughness or 0.5))
+    if emissiveColor then
+        mat:SetShaderParameter("MatEmissiveColor", Variant(emissiveColor))
+    end
+    mat:SetCullMode(CULL_CW)  -- 剔除正面(顺时针)，只显示背面(内壁)
+    return mat
+end
+
+-- ============================================================================
+-- PunchGround: 拆分地面 Box，在洞的车道留出真实缺口
+-- ============================================================================
+
+--- 拆分地面：删除原地面 Box，按车道条带重建，有洞的车道留缺口
+local function PunchGround(segStartZ, segEndZ, biomeIdx)
+    local segZ = (segStartZ + segEndZ) / 2
+
+    -- 收集本段内的所有洞
+    local holeRanges = {}
+    for _, hole in ipairs(State.holes) do
+        if hole.zEnd > segStartZ and hole.zStart < segEndZ then
+            holeRanges[#holeRanges + 1] = hole
+        end
+    end
+    if #holeRanges == 0 then return end
+
+    -- 找到原地面段并删除
+    local segData = nil
+    for _, seg in ipairs(State.groundSegments) do
+        if math.abs(seg.z - segZ) < 1.0 then
+            segData = seg
+            break
+        end
+    end
+    if not segData or not segData.node then return end
+    segData.node:Remove()
+    segData.node = nil  -- 标记为已拆分，由名称清理回收新节点
+
+    -- 同时删除原跑道线（稍后重建不穿越洞口的版本）
+    local children = State.scene:GetChildren()
+    for i = #children, 1, -1 do
+        local child = children[i]
+        if child.name == "LaneLine" and math.abs(child.position.z - segZ) < 1.0 then
+            child:Remove()
+        end
+    end
+
+    -- 重建地面
+    local biome = Config.BIOMES[biomeIdx]
+    local LW = Config.LANE_WIDTH
+    local halfTrack = Config.TRACK_WIDTH / 2
+    local groundMat = Config.CreatePBRMaterial(biome.ground, 0.0, 0.9)
+    local laneMat = Config.CreatePBRMaterial(biome.lane, 0.0, 0.5)
+
+    -- 五条纵向条带: 左边缘 | 左车道 | 中车道 | 右车道 | 右边缘
+    local strips = {
+        { x1 = -halfTrack, x2 = -LW * 1.5, lane = nil },
+        { x1 = -LW * 1.5, x2 = -LW * 0.5, lane = -1 },
+        { x1 = -LW * 0.5, x2 =  LW * 0.5, lane =  0 },
+        { x1 =  LW * 0.5, x2 =  LW * 1.5, lane =  1 },
+        { x1 =  LW * 1.5, x2 =  halfTrack, lane = nil },
+    }
+
+    for _, strip in ipairs(strips) do
+        local w = strip.x2 - strip.x1
+        local cx = (strip.x1 + strip.x2) / 2
+
+        -- 收集此车道在本段内的洞
+        local laneHoles = {}
+        if strip.lane then
+            for _, hole in ipairs(holeRanges) do
+                for _, hl in ipairs(hole.lanes) do
+                    if hl == strip.lane then
+                        laneHoles[#laneHoles + 1] = {
+                            zStart = math.max(hole.zStart, segStartZ),
+                            zEnd   = math.min(hole.zEnd, segEndZ),
+                        }
+                        break
+                    end
+                end
+            end
+            table.sort(laneHoles, function(a, b) return a.zStart < b.zStart end)
+        end
+
+        if #laneHoles == 0 then
+            -- 无洞：整段铺满
+            local node = State.scene:CreateChild("Ground")
+            node.position = Vector3(cx, -0.25, segZ)
+            node.scale = Vector3(w, 0.5, Config.TRACK_LENGTH)
+            local m = node:CreateComponent("StaticModel")
+            m:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            m:SetMaterial(groundMat)
+        else
+            -- 有洞：在洞之间铺地面碎片
+            local curZ = segStartZ
+            for _, lh in ipairs(laneHoles) do
+                if lh.zStart > curZ + 0.2 then
+                    local pLen = lh.zStart - curZ
+                    local pZ = (curZ + lh.zStart) / 2
+                    local node = State.scene:CreateChild("Ground")
+                    node.position = Vector3(cx, -0.25, pZ)
+                    node.scale = Vector3(w, 0.5, pLen)
+                    local m = node:CreateComponent("StaticModel")
+                    m:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    m:SetMaterial(groundMat)
+                end
+                curZ = lh.zEnd
+            end
+            -- 最后一段
+            if curZ < segEndZ - 0.2 then
+                local pLen = segEndZ - curZ
+                local pZ = (curZ + segEndZ) / 2
+                local node = State.scene:CreateChild("Ground")
+                node.position = Vector3(cx, -0.25, pZ)
+                node.scale = Vector3(w, 0.5, pLen)
+                local m = node:CreateComponent("StaticModel")
+                m:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                m:SetMaterial(groundMat)
+            end
+        end
+    end
+
+    -- 重建跑道线（同样按洞切割）
+    for i = -1, 1 do
+        local lineX = i * LW
+        -- 收集所有影响此线位置的洞（线在两个车道的边界，任一侧有洞就切断）
+        local lineHoles = {}
+        for _, hole in ipairs(holeRanges) do
+            for _, hl in ipairs(hole.lanes) do
+                -- 线在 lane 和 lane+1 的边界，检查两侧
+                -- i=-1 的线在 lane -1 和 0 之间（x=-2.5），i=0 在 0 和 1（x=0），i=1 在 1 和右边（x=2.5）
+                -- 简化：如果洞的车道与此线相邻就切断
+                if hl == i or hl == i - 1 then
+                    local zs = math.max(hole.zStart, segStartZ)
+                    local ze = math.min(hole.zEnd, segEndZ)
+                    lineHoles[#lineHoles + 1] = { zStart = zs, zEnd = ze }
+                end
+            end
+        end
+        -- 合并重叠区间
+        table.sort(lineHoles, function(a, b) return a.zStart < b.zStart end)
+        local merged = {}
+        for _, lh in ipairs(lineHoles) do
+            if #merged > 0 and lh.zStart <= merged[#merged].zEnd then
+                merged[#merged].zEnd = math.max(merged[#merged].zEnd, lh.zEnd)
+            else
+                merged[#merged + 1] = { zStart = lh.zStart, zEnd = lh.zEnd }
+            end
+        end
+
+        if #merged == 0 then
+            -- 无洞影响，整段跑道线
+            local ln = State.scene:CreateChild("LaneLine")
+            ln.position = Vector3(lineX, 0.01, segZ)
+            ln.scale = Vector3(0.08, 0.01, Config.TRACK_LENGTH)
+            local lm = ln:CreateComponent("StaticModel")
+            lm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            lm:SetMaterial(laneMat)
+        else
+            local curZ = segStartZ
+            for _, lh in ipairs(merged) do
+                if lh.zStart > curZ + 0.2 then
+                    local pLen = lh.zStart - curZ
+                    local pZ = (curZ + lh.zStart) / 2
+                    local ln = State.scene:CreateChild("LaneLine")
+                    ln.position = Vector3(lineX, 0.01, pZ)
+                    ln.scale = Vector3(0.08, 0.01, pLen)
+                    local lm = ln:CreateComponent("StaticModel")
+                    lm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    lm:SetMaterial(laneMat)
+                end
+                curZ = lh.zEnd
+            end
+            if curZ < segEndZ - 0.2 then
+                local pLen = segEndZ - curZ
+                local pZ = (curZ + segEndZ) / 2
+                local ln = State.scene:CreateChild("LaneLine")
+                ln.position = Vector3(lineX, 0.01, pZ)
+                ln.scale = Vector3(0.08, 0.01, pLen)
+                local lm = ln:CreateComponent("StaticModel")
+                lm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                lm:SetMaterial(laneMat)
+            end
+        end
+    end
+end
 
 --- 创建窟窿的视觉表现（按场景派发 3D 效果）
 function Holes.CreateHoleVisual(hole)
@@ -24,7 +216,7 @@ function Holes.CreateHoleVisual(hole)
 end
 
 -- ============================================================================
--- Glacier: 3D 冰裂缝（深蓝底部 + 冰壁 + 暗色开口 + 发光边缘 + 碎冰）
+-- Glacier: 冰裂缝洞窟（背面渲染内壁 + 发光边缘 + 碎冰）
 -- ============================================================================
 
 function Holes.CreateIceCrackVisual(hole, lane)
@@ -34,63 +226,59 @@ function Holes.CreateIceCrackVisual(hole, lane)
     local cz = (hole.zStart + hole.zEnd) / 2
     local lw = Config.LANE_WIDTH * 0.95
 
-    -- 1) 深层底部（深蓝黑色，沉到地面以下）
+    -- 1) 洞窟主体（背面渲染的长方体，沉入地面以下）
+    local caveDepth = 2.5
+    local caveNode = State.scene:CreateChild("Hole")
+    caveNode.position = Vector3(cx, -caveDepth / 2, cz)
+    caveNode.scale = Vector3(lw, caveDepth, holeLen * 0.98)
+    local cm = caveNode:CreateComponent("StaticModel")
+    cm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+    cm:SetMaterial(CreateInnerWallMaterial(vis.wallColor, 0.15, 0.2, vis.wallEmissive))
+    cm.castShadows = false
+    table.insert(hole.nodes, caveNode)
+
+    -- 2) 深层底部（暗色底板，正常渲染）
     local bottom = State.scene:CreateChild("Hole")
-    bottom.position = Vector3(cx, -1.5, cz)
-    bottom.scale = Vector3(lw * 0.6, 0.3, holeLen * 0.9)
+    bottom.position = Vector3(cx, -caveDepth, cz)
+    bottom.scale = Vector3(lw * 0.95, 0.1, holeLen * 0.95)
     local bm = bottom:CreateComponent("StaticModel")
     bm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
     bm:SetMaterial(Config.CreatePBRMaterial(vis.bottomColor, 0.0, 1.0))
     bm.castShadows = false
     table.insert(hole.nodes, bottom)
 
-    -- 2) 冰壁（左右两面，收窄形成 V 形裂缝）
-    for side = -1, 1, 2 do
-        local wall = State.scene:CreateChild("Hole")
-        wall.position = Vector3(cx + side * lw * 0.35, -0.7, cz)
-        wall.scale = Vector3(0.15, 1.5, holeLen * 0.95)
-        local wm = wall:CreateComponent("StaticModel")
-        wm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        local wallMat = Material:new()
-        wallMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-        wallMat:SetShaderParameter("MatDiffColor", Variant(vis.wallColor))
-        wallMat:SetShaderParameter("MatEmissiveColor", Variant(vis.wallEmissive))
-        wallMat:SetShaderParameter("Metallic", Variant(0.2))
-        wallMat:SetShaderParameter("Roughness", Variant(0.15))
-        wm:SetMaterial(wallMat)
-        wm.castShadows = false
-        table.insert(hole.nodes, wall)
-    end
-
-    -- 3) 暗色开口面（盖住地面，营造深渊感）
-    local opening = State.scene:CreateChild("Hole")
-    opening.position = Vector3(cx, -0.04, cz)
-    opening.scale = Vector3(lw, 0.15, holeLen)
-    local om = opening:CreateComponent("StaticModel")
-    om:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    om:SetMaterial(Config.CreatePBRMaterial(Color(0.03, 0.05, 0.12, 1.0), 0.0, 1.0))
-    om.castShadows = false
-    table.insert(hole.nodes, opening)
-
-    -- 4) 发光边缘条（前后各一条，冰蓝色微光）
+    -- 3) 发光边缘条（洞口四周冰蓝色微光边框）
     local edgeMat = Material:new()
     edgeMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
     edgeMat:SetShaderParameter("MatDiffColor", Variant(vis.edgeColor))
     edgeMat:SetShaderParameter("MatEmissiveColor", Variant(vis.edgeEmissive))
     edgeMat:SetShaderParameter("Metallic", Variant(0.1))
     edgeMat:SetShaderParameter("Roughness", Variant(0.2))
+
+    -- 前后边缘
     for _, zOff in ipairs({ hole.zStart, hole.zEnd }) do
         local edge = State.scene:CreateChild("Hole")
         edge.position = Vector3(cx, 0.02, zOff)
-        edge.scale = Vector3(lw, 0.06, 0.2)
+        edge.scale = Vector3(lw * 1.02, 0.05, 0.15)
         local em = edge:CreateComponent("StaticModel")
         em:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         em:SetMaterial(edgeMat)
         em.castShadows = false
         table.insert(hole.nodes, edge)
     end
+    -- 左右边缘
+    for side = -1, 1, 2 do
+        local sideEdge = State.scene:CreateChild("Hole")
+        sideEdge.position = Vector3(cx + side * lw * 0.5, 0.02, cz)
+        sideEdge.scale = Vector3(0.12, 0.05, holeLen)
+        local sem = sideEdge:CreateComponent("StaticModel")
+        sem:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        sem:SetMaterial(edgeMat)
+        sem.castShadows = false
+        table.insert(hole.nodes, sideEdge)
+    end
 
-    -- 5) 散落碎冰块（裂缝边缘 3-5 块小冰碴）
+    -- 4) 散落碎冰块
     local fragCount = math.random(3, 5)
     for j = 1, fragCount do
         local frag = State.scene:CreateChild("Hole")
@@ -109,7 +297,7 @@ function Holes.CreateIceCrackVisual(hole, lane)
 end
 
 -- ============================================================================
--- Cliffs: 3D 悬崖边缘（深渊 + 岩壁 + 暗影 + 草皮边缘 + 碎石）
+-- Cliffs: 悬崖边缘洞窟（背面渲染岩壁 + 草皮边缘 + 碎石）
 -- ============================================================================
 
 function Holes.CreateCliffEdgeVisual(hole, lane)
@@ -119,44 +307,33 @@ function Holes.CreateCliffEdgeVisual(hole, lane)
     local cz = (hole.zStart + hole.zEnd) / 2
     local lw = Config.LANE_WIDTH * 0.95
 
-    -- 1) 深渊底部（几乎纯黑）
+    -- 1) 洞窟主体（背面渲染 — 岩石内壁）
+    local caveDepth = 3.0
+    local caveNode = State.scene:CreateChild("Hole")
+    caveNode.position = Vector3(cx, -caveDepth / 2, cz)
+    caveNode.scale = Vector3(lw, caveDepth, holeLen * 0.98)
+    local cm = caveNode:CreateComponent("StaticModel")
+    cm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+    cm:SetMaterial(CreateInnerWallMaterial(vis.wallColor, 0.0, 0.88))
+    cm.castShadows = false
+    table.insert(hole.nodes, caveNode)
+
+    -- 2) 深渊底部
     local abyss = State.scene:CreateChild("Hole")
-    abyss.position = Vector3(cx, -2.0, cz)
-    abyss.scale = Vector3(lw * 0.7, 0.3, holeLen * 0.85)
+    abyss.position = Vector3(cx, -caveDepth, cz)
+    abyss.scale = Vector3(lw * 0.95, 0.1, holeLen * 0.95)
     local am = abyss:CreateComponent("StaticModel")
     am:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
     am:SetMaterial(Config.CreatePBRMaterial(vis.bottomColor, 0.0, 1.0))
     am.castShadows = false
     table.insert(hole.nodes, abyss)
 
-    -- 2) 岩壁（左右两面，棕色岩石质感）
-    for side = -1, 1, 2 do
-        local wall = State.scene:CreateChild("Hole")
-        wall.position = Vector3(cx + side * lw * 0.38, -0.9, cz)
-        wall.scale = Vector3(0.2, 2.0, holeLen * 0.95)
-        local wm = wall:CreateComponent("StaticModel")
-        wm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        wm:SetMaterial(Config.CreatePBRMaterial(vis.wallColor, 0.0, 0.92))
-        wm.castShadows = false
-        table.insert(hole.nodes, wall)
-    end
-
-    -- 3) 暗影开口
-    local shadow = State.scene:CreateChild("Hole")
-    shadow.position = Vector3(cx, -0.04, cz)
-    shadow.scale = Vector3(lw, 0.15, holeLen)
-    local sm = shadow:CreateComponent("StaticModel")
-    sm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    sm:SetMaterial(Config.CreatePBRMaterial(Color(0.04, 0.04, 0.03, 1.0), 0.0, 1.0))
-    sm.castShadows = false
-    table.insert(hole.nodes, shadow)
-
-    -- 4) 草皮边缘（前后各一条绿色草坪条带）
+    -- 3) 草皮边缘
     local grassMat = Config.CreatePBRMaterial(vis.grassColor, 0.0, 0.85)
     for _, zOff in ipairs({ hole.zStart, hole.zEnd }) do
         local lip = State.scene:CreateChild("Hole")
         lip.position = Vector3(cx, 0.02, zOff)
-        lip.scale = Vector3(lw * 1.05, 0.06, 0.3)
+        lip.scale = Vector3(lw * 1.05, 0.05, 0.25)
         local lm = lip:CreateComponent("StaticModel")
         lm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         lm:SetMaterial(grassMat)
@@ -164,12 +341,12 @@ function Holes.CreateCliffEdgeVisual(hole, lane)
         table.insert(hole.nodes, lip)
     end
 
-    -- 5) 崖壁边缘色条（棕色岩石边条，前后）
+    -- 4) 崖壁边缘色条
     local edgeMat = Config.CreatePBRMaterial(vis.edgeColor, 0.0, 0.88)
-    for _, zOff in ipairs({ hole.zStart - 0.1, hole.zEnd + 0.1 }) do
+    for side = -1, 1, 2 do
         local edge = State.scene:CreateChild("Hole")
-        edge.position = Vector3(cx, -0.1, zOff)
-        edge.scale = Vector3(lw, 0.2, 0.15)
+        edge.position = Vector3(cx + side * lw * 0.5, 0.01, cz)
+        edge.scale = Vector3(0.12, 0.06, holeLen)
         local em = edge:CreateComponent("StaticModel")
         em:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         em:SetMaterial(edgeMat)
@@ -177,7 +354,7 @@ function Holes.CreateCliffEdgeVisual(hole, lane)
         table.insert(hole.nodes, edge)
     end
 
-    -- 6) 散落碎石（悬崖边缘 3-6 块碎石）
+    -- 5) 散落碎石
     local rubbleCount = math.random(3, 6)
     for j = 1, rubbleCount do
         local rubble = State.scene:CreateChild("Hole")
@@ -202,6 +379,8 @@ end
 function Holes.GenerateForSegment(segStartZ, segEndZ, biomeIdx)
     local cfg = Config.HOLE_CONFIGS[biomeIdx]
     if not cfg or not cfg.enabled then return end
+
+    local createdAny = false
 
     while State.nextHoleZ < segEndZ do
         if State.nextHoleZ < segStartZ then
@@ -233,9 +412,15 @@ function Holes.GenerateForSegment(segStartZ, segEndZ, biomeIdx)
         }
         Holes.CreateHoleVisual(hole)
         table.insert(State.holes, hole)
+        createdAny = true
 
         local interval = cfg.intervalMin + math.random() * (cfg.intervalMax - cfg.intervalMin)
         State.nextHoleZ = State.nextHoleZ + holeLen + interval
+    end
+
+    -- 如果本段有洞，拆分地面留出缺口
+    if createdAny then
+        PunchGround(segStartZ, segEndZ, biomeIdx)
     end
 end
 
