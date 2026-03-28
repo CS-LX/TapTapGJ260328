@@ -89,9 +89,18 @@ function MidiPlayer.new(scene, options)
     self.percussionPaths = options.percussionPaths or buildDefaultPercussionPaths()
     self.velocityThreshold = options.velocityThreshold or VELOCITY_THRESHOLD
 
-    -- 音频节点池
-    self.audioNode       = scene:CreateChild("MidiPlayerAudio")
-    self.activeSources   = {}   -- { SoundSource, ... }
+    -- 音源池 (预创建，避免频繁 CreateComponent/Remove)
+    self.audioNode         = scene:CreateChild("MidiPlayerAudio")
+    self.sourcePool        = {}   -- 空闲 SoundSource 池
+    self.activeSources     = {}   -- 活跃音源 { source, note, channel, gain }
+    self.releasingSources  = {}   -- 正在淡出的音源 { source, gain }
+    self.fadeOutSpeed       = options.fadeOutSpeed or 25.0  -- gain 每秒衰减速度 (~50ms 淡出)
+
+    -- 预创建音源池
+    for i = 1, self.maxPolyphony do
+        local src = self.audioNode:CreateComponent("SoundSource")
+        self.sourcePool[i] = src
+    end
 
     -- 回调
     self.onNoteOn        = options.onNoteOn        -- function(note, velocity, channel)
@@ -234,8 +243,9 @@ function MidiPlayer:update(dt)
 
     self.elapsedTime = self.elapsedTime + dt * self.speed
 
-    -- 清理已结束的音源
+    -- 清理已结束的音源 & 处理淡出
     self:cleanupSources()
+    self:fadeReleasingSources(dt)
 
     -- 触发当前时间之前的所有事件
     local ticksPerBeat = self.midi.ticksPerBeat
@@ -288,15 +298,16 @@ function MidiPlayer:handleNoteOn(evt)
         self.onNoteOn(evt.note, evt.velocity, evt.channel, evt.noteName)
     end
 
-    -- 控制复音数
-    if #self.activeSources >= self.maxPolyphony then
+    -- 控制复音数：池空时回收最老音源
+    if #self.sourcePool == 0 then
         self:removeOldestSource()
     end
+    -- 仍然没有可用音源则跳过
+    if #self.sourcePool == 0 then return end
 
     -- 获取音频路径 (根据 velocity 选择 Hard/Soft 采样层)
     local soundPath
     if evt.channel == 10 then
-        -- 打击乐通道
         soundPath = self.percussionPaths[evt.note]
     else
         if evt.velocity >= self.velocityThreshold then
@@ -310,21 +321,22 @@ function MidiPlayer:handleNoteOn(evt)
 
     -- 尝试加载音频资源
     local sound = cache:GetResource("Sound", soundPath)
-    if not sound then
-        -- 占位路径不存在时静默跳过，不报错
-        return
-    end
+    if not sound then return end
 
-    -- 创建音源并播放
-    local source = self.audioNode:CreateComponent("SoundSource")
+    -- 从池中取出音源
+    local source = table.remove(self.sourcePool)
+
     local gain = (evt.velocity / 127.0) * self.volume
+
+    -- 确保音源干净后再播放
+    source:Stop()
     source:Play(sound, sound.frequency, gain)
-    source.autoRemoveMode = REMOVE_COMPONENT
 
     self.activeSources[#self.activeSources + 1] = {
         source  = source,
         note    = evt.note,
         channel = evt.channel,
+        gain    = gain,
     }
 end
 
@@ -334,15 +346,18 @@ function MidiPlayer:handleNoteOff(evt)
         self.onNoteOff(evt.note, evt.velocity, evt.channel, evt.noteName)
     end
 
-    -- 停止对应音源
+    -- 将对应音源移入淡出列表（不立即 Stop，避免噗声）
     for i = #self.activeSources, 1, -1 do
         local info = self.activeSources[i]
         if info.note == evt.note and info.channel == evt.channel then
             if info.source then
-                info.source:Stop()
+                self.releasingSources[#self.releasingSources + 1] = {
+                    source = info.source,
+                    gain   = info.gain or self.volume,
+                }
             end
             table.remove(self.activeSources, i)
-            break  -- 只停一个
+            break
         end
     end
 end
@@ -355,6 +370,10 @@ function MidiPlayer:cleanupSources()
     for i = #self.activeSources, 1, -1 do
         local info = self.activeSources[i]
         if not info.source or not info.source:IsPlaying() then
+            -- 归还到池
+            if info.source then
+                self.sourcePool[#self.sourcePool + 1] = info.source
+            end
             table.remove(self.activeSources, i)
         end
     end
@@ -364,8 +383,18 @@ function MidiPlayer:removeOldestSource()
     if #self.activeSources > 0 then
         local info = table.remove(self.activeSources, 1)
         if info.source then
-            info.source:Stop()
+            -- 移入淡出列表而非立即 Stop
+            self.releasingSources[#self.releasingSources + 1] = {
+                source = info.source,
+                gain   = info.gain or self.volume,
+            }
         end
+    end
+    -- 如果淡出列表也满了，强制回收最老的淡出音源
+    if #self.sourcePool == 0 and #self.releasingSources > 0 then
+        local old = table.remove(self.releasingSources, 1)
+        old.source:Stop()
+        self.sourcePool[#self.sourcePool + 1] = old.source
     end
 end
 
@@ -373,9 +402,35 @@ function MidiPlayer:stopAllSources()
     for _, info in ipairs(self.activeSources) do
         if info.source then
             info.source:Stop()
+            self.sourcePool[#self.sourcePool + 1] = info.source
         end
     end
     self.activeSources = {}
+    -- 同时清理淡出列表
+    for _, info in ipairs(self.releasingSources) do
+        if info.source then
+            info.source:Stop()
+            self.sourcePool[#self.sourcePool + 1] = info.source
+        end
+    end
+    self.releasingSources = {}
+end
+
+--- 处理淡出中的音源（每帧调用）
+---@param dt number
+function MidiPlayer:fadeReleasingSources(dt)
+    for i = #self.releasingSources, 1, -1 do
+        local info = self.releasingSources[i]
+        info.gain = info.gain - self.fadeOutSpeed * dt
+        if info.gain <= 0.005 then
+            -- 淡出完毕，停止并归还到池
+            info.source:Stop()
+            self.sourcePool[#self.sourcePool + 1] = info.source
+            table.remove(self.releasingSources, i)
+        else
+            info.source.gain = info.gain
+        end
+    end
 end
 
 ------------------------------------------------------------
