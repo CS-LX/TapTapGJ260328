@@ -263,6 +263,14 @@ function Player.Update(dt)
     -- 判断玩家是否在峡谷上方（无地面）
     local overCanyon = World.IsInCanyon(pos.z) and not State.isAutoJumping
 
+    -- 判断玩家是否在窟窿上方（按当前所在车道）
+    local nearestLane = math.floor((pos.x / Config.LANE_WIDTH) + 0.5)
+    nearestLane = math.max(-1, math.min(1, nearestLane))
+    local overHole = World.IsOverHole(pos.z, nearestLane) and not State.isAutoJumping
+
+    -- 合并：无地面 = 峡谷 或 窟窿
+    local overVoid = overCanyon or overHole
+
     -- 虚空坠落中：只做坠落物理和翻滚动画，不做其他逻辑
     if State.isVoidFalling then
         State.voidFallTimer = State.voidFallTimer + dt
@@ -306,29 +314,29 @@ function Player.Update(dt)
         pos.y = pos.y + State.playerVelocityY * dt
         State.playerVelocityY = State.playerVelocityY + Config.GRAVITY * dt
         if pos.y <= 0 then
-            if overCanyon then
-                -- 峡谷上方无地面，进入虚空坠落
+            if overVoid then
+                -- 无地面（峡谷或窟窿），进入虚空坠落
                 State.isVoidFalling = true
                 State.voidFallTimer = 0
                 State.isJumping = false
                 State.isSliding = false
                 State.slideTimer = 0
                 -- 保持当前下落速度继续坠落
-                print("[Canyon] Player fell into void!")
+                print("[Void] Player fell into void!")
             else
                 pos.y = 0
                 State.isJumping = false
                 State.playerVelocityY = 0
             end
         end
-    elseif overCanyon then
-        -- 非跳跃状态走入峡谷（跑进去了）→ 开始坠落
+    elseif overVoid then
+        -- 非跳跃状态走入无地面区域（峡谷或窟窿）→ 开始坠落
         State.isVoidFalling = true
         State.voidFallTimer = 0
         State.playerVelocityY = 0
         State.isSliding = false
         State.slideTimer = 0
-        print("[Canyon] Player walked into void!")
+        print("[Void] Player walked into void!")
     end
 
     if State.isSliding then

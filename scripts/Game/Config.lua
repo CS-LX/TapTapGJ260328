@@ -79,6 +79,16 @@ Config.BIOMES = {
     },
 }
 
+-- 地面窟窿配置（按场景索引）
+Config.HOLE_CONFIGS = {
+    -- City: 无窟窿
+    { enabled = false },
+    -- Desert: 小的单轨窟窿
+    { enabled = true, minLen = 5, maxLen = 10, maxLanes = 1, intervalMin = 35, intervalMax = 55 },
+    -- Neon: 长窟窿，可达2轨（只剩中间一条）
+    { enabled = true, minLen = 10, maxLen = 18, maxLanes = 2, intervalMin = 25, intervalMax = 45 },
+}
+
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 

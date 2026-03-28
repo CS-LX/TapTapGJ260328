@@ -114,7 +114,12 @@ end
 
 function World.SpawnObstacle(zPos)
     local obsType = math.random(1, 4)
-    local lane = math.random(-1, 1)
+
+    -- 获取该位置的实心车道
+    local solidLanes = World.GetSolidLanes(zPos)
+    if #solidLanes == 0 then return end  -- 全是窟窿，不生成
+
+    local lane = solidLanes[math.random(1, #solidLanes)]
 
     local node = State.scene:CreateChild("Obstacle")
     local obs = { node = node, z = zPos, obsType = obsType, lane = lane }
@@ -128,40 +133,66 @@ function World.SpawnObstacle(zPos)
         model:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
         model.castShadows = true
 
-        -- 有时候占两条道
-        if math.random() > 0.6 then
+        -- 有时候占两条道（只选实心车道）
+        if math.random() > 0.6 and #solidLanes >= 2 then
             local lane2 = lane
-            if lane == 0 then
-                lane2 = math.random(0, 1) == 0 and -1 or 1
-            elseif lane == -1 then
-                lane2 = 0
-            else
-                lane2 = 0
+            -- 从实心车道中选另一条
+            for _, sl in ipairs(solidLanes) do
+                if sl ~= lane then
+                    lane2 = sl
+                    break
+                end
             end
-            local node2 = State.scene:CreateChild("Obstacle2")
-            node2.position = Vector3(lane2 * Config.LANE_WIDTH, 0.6, zPos)
-            node2.scale = Vector3(1.8, 1.2, 0.8)
-            local model2 = node2:CreateComponent("StaticModel")
-            model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model2:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
-            model2.castShadows = true
-            obs.extraNode = node2
-            obs.lane2 = lane2
+            if lane2 ~= lane then
+                local node2 = State.scene:CreateChild("Obstacle2")
+                node2.position = Vector3(lane2 * Config.LANE_WIDTH, 0.6, zPos)
+                node2.scale = Vector3(1.8, 1.2, 0.8)
+                local model2 = node2:CreateComponent("StaticModel")
+                model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                model2:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
+                model2.castShadows = true
+                obs.extraNode = node2
+                obs.lane2 = lane2
+            end
         end
 
     elseif obsType == Config.OBS_LOW_BAR
         or obsType == Config.OBS_HIGH_BAR
         or obsType == Config.OBS_OVERHEAD then
 
-        -- 栏板类障碍：50% 概率只占2轨道，留1轨道可变道躲避
+        local solidCount = #solidLanes
         local barOffsetX = 0
         local barWidthRatio = 0.8  -- 满3轨道宽度比
-        if math.random() > 0.25 then
-            -- 2轨道：随机空出左或右
-            local openLane = math.random(0, 1) == 0 and -1 or 1
-            obs.openLane = openLane
-            barOffsetX = -openLane * Config.LANE_WIDTH * 0.5
-            barWidthRatio = 0.55  -- 缩窄到覆盖2轨道
+
+        if solidCount == 1 then
+            -- 只有1条实心车道：生成单轨窄栏板
+            barOffsetX = solidLanes[1] * Config.LANE_WIDTH
+            barWidthRatio = 0.25
+            -- 无 openLane，因为只占1轨
+        elseif solidCount == 2 then
+            -- 2条实心车道：覆盖两条，留空的那条不是实心的
+            local sumX = 0
+            for _, sl in ipairs(solidLanes) do sumX = sumX + sl end
+            barOffsetX = (sumX / 2) * Config.LANE_WIDTH
+            barWidthRatio = 0.55
+            -- 25% 概率只覆盖1条，留另一条可躲避
+            if math.random() < 0.25 then
+                local pickLane = solidLanes[math.random(1, 2)]
+                barOffsetX = pickLane * Config.LANE_WIDTH
+                barWidthRatio = 0.25
+                -- openLane = 另一条实心
+                for _, sl in ipairs(solidLanes) do
+                    if sl ~= pickLane then obs.openLane = sl break end
+                end
+            end
+        else
+            -- 3条实心车道：原始逻辑
+            if math.random() > 0.25 then
+                local openLane = math.random(0, 1) == 0 and -1 or 1
+                obs.openLane = openLane
+                barOffsetX = -openLane * Config.LANE_WIDTH * 0.5
+                barWidthRatio = 0.55
+            end
         end
         obs.lane = -99
 
@@ -228,7 +259,10 @@ end
 -- ============================================================================
 
 function World.SpawnCoins(zPos)
-    local lane = math.random(-1, 1)
+    -- 金币只在实心车道上生成
+    local solidLanes = World.GetSolidLanes(zPos)
+    if #solidLanes == 0 then return end
+    local lane = solidLanes[math.random(1, #solidLanes)]
     local coinCount = math.random(3, 6)
 
     for i = 1, coinCount do
@@ -458,6 +492,11 @@ function World.UpdateGround(dt)
         World.CreateGroundSegment(newSegZ, biome)
         State.segmentsInBiome = State.segmentsInBiome + 1
         lastSegEnd = newSegZ + Config.TRACK_LENGTH / 2
+
+        -- 在新段上生成窟窿
+        local segStartZ = newSegZ - Config.TRACK_LENGTH / 2
+        local segEndZ   = newSegZ + Config.TRACK_LENGTH / 2
+        World.GenerateHolesForSegment(segStartZ, segEndZ, State.biomeIndex)
     end
 
     -- 清理过远的地面段
@@ -491,6 +530,9 @@ function World.UpdateGround(dt)
             table.remove(State.canyons, i)
         end
     end
+
+    -- 清理过远的窟窿
+    World.CleanupHoles(playerZ)
 end
 
 -- ============================================================================
@@ -552,6 +594,153 @@ function World.GetNextCanyon(playerZ)
         end
     end
     return nearest
+end
+
+-- ============================================================================
+-- 地面窟窿系统
+-- ============================================================================
+
+--- 创建窟窿的视觉表现（暗色坑洞覆盖地面）
+function World.CreateHoleVisual(hole)
+    hole.nodes = {}
+    for _, lane in ipairs(hole.lanes) do
+        local holeLen = hole.zEnd - hole.zStart
+        local cx = lane * Config.LANE_WIDTH
+        local cz = (hole.zStart + hole.zEnd) / 2
+
+        -- 主体：深色凹陷
+        local node = State.scene:CreateChild("Hole")
+        node.position = Vector3(cx, -0.05, cz)
+        node.scale = Vector3(Config.LANE_WIDTH * 0.95, 0.2, holeLen)
+        local model = node:CreateComponent("StaticModel")
+        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        local mat = Material:new()
+        mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
+        mat:SetShaderParameter("MatDiffColor", Variant(Color(0.02, 0.02, 0.05, 1.0)))
+        mat:SetShaderParameter("Metallic", Variant(0.0))
+        mat:SetShaderParameter("Roughness", Variant(1.0))
+        model:SetMaterial(mat)
+        model.castShadows = false
+        table.insert(hole.nodes, node)
+
+        -- 边缘发光条（前后两条）
+        local edgeMat = Material:new()
+        edgeMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
+        edgeMat:SetShaderParameter("MatDiffColor", Variant(Color(1.0, 0.3, 0.1, 1.0)))
+        edgeMat:SetShaderParameter("MatEmissiveColor", Variant(Color(1.0, 0.2, 0.0)))
+        edgeMat:SetShaderParameter("Metallic", Variant(0.0))
+        edgeMat:SetShaderParameter("Roughness", Variant(0.5))
+        for _, zOff in ipairs({ hole.zStart, hole.zEnd }) do
+            local edge = State.scene:CreateChild("Hole")
+            edge.position = Vector3(cx, 0.02, zOff)
+            edge.scale = Vector3(Config.LANE_WIDTH * 0.95, 0.05, 0.15)
+            local em = edge:CreateComponent("StaticModel")
+            em:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            em:SetMaterial(edgeMat)
+            em.castShadows = false
+            table.insert(hole.nodes, edge)
+        end
+    end
+end
+
+--- 为一段地面生成窟窿
+--- @param segStartZ number 地面段起点 Z（= segZ - TRACK_LENGTH/2）
+--- @param segEndZ number 地面段终点 Z
+--- @param biomeIdx number 当前场景索引
+function World.GenerateHolesForSegment(segStartZ, segEndZ, biomeIdx)
+    local cfg = Config.HOLE_CONFIGS[biomeIdx]
+    if not cfg or not cfg.enabled then return end
+
+    -- 从 nextHoleZ 开始生成，直到超过 segEndZ
+    while State.nextHoleZ < segEndZ do
+        if State.nextHoleZ < segStartZ then
+            State.nextHoleZ = segStartZ + 10  -- 段头留10米缓冲
+        end
+
+        -- 跳过峡谷区域
+        State.nextHoleZ = World.SkipCanyon(State.nextHoleZ, 15)
+        if State.nextHoleZ >= segEndZ then break end
+
+        -- 随机窟窿长度
+        local holeLen = cfg.minLen + math.random() * (cfg.maxLen - cfg.minLen)
+
+        -- 确保窟窿不会超出段尾
+        if State.nextHoleZ + holeLen > segEndZ - 5 then break end
+
+        -- 随机选择受影响的车道
+        local lanes = {}
+        if cfg.maxLanes == 1 then
+            -- 单轨窟窿：随机一条边道（-1 或 1）
+            lanes = { math.random(0, 1) == 0 and -1 or 1 }
+        elseif cfg.maxLanes == 2 then
+            -- 最多2轨窟窿
+            if math.random() < 0.35 then
+                -- 35% 概率单轨
+                lanes = { math.random(0, 1) == 0 and -1 or 1 }
+            else
+                -- 65% 概率双轨（两侧，留中间）
+                lanes = { -1, 1 }
+            end
+        end
+
+        local hole = {
+            zStart = State.nextHoleZ,
+            zEnd   = State.nextHoleZ + holeLen,
+            lanes  = lanes,
+        }
+        World.CreateHoleVisual(hole)
+        table.insert(State.holes, hole)
+
+        -- 下一个窟窿间距
+        local interval = cfg.intervalMin + math.random() * (cfg.intervalMax - cfg.intervalMin)
+        State.nextHoleZ = State.nextHoleZ + holeLen + interval
+    end
+end
+
+--- 检查 (z, lane) 是否在窟窿上
+function World.IsOverHole(z, lane)
+    for _, hole in ipairs(State.holes) do
+        if z >= hole.zStart and z <= hole.zEnd then
+            for _, hl in ipairs(hole.lanes) do
+                if hl == lane then return true end
+            end
+        end
+    end
+    return false
+end
+
+--- 获取 z 位置的实心车道列表
+function World.GetSolidLanes(z)
+    local solid = { [-1] = true, [0] = true, [1] = true }
+    for _, hole in ipairs(State.holes) do
+        if z >= hole.zStart and z <= hole.zEnd then
+            for _, hl in ipairs(hole.lanes) do
+                solid[hl] = nil
+            end
+        end
+    end
+    local result = {}
+    for lane = -1, 1 do
+        if solid[lane] then
+            result[#result + 1] = lane
+        end
+    end
+    return result
+end
+
+--- 清理过远的窟窿
+function World.CleanupHoles(playerZ)
+    for i = #State.holes, 1, -1 do
+        local hole = State.holes[i]
+        if hole.zEnd < playerZ - 50 then
+            if hole.nodes then
+                for _, n in ipairs(hole.nodes) do
+                    if n then n:Remove() end
+                end
+            end
+            table.remove(State.holes, i)
+        end
+    end
 end
 
 -- ============================================================================

@@ -73,6 +73,10 @@ State.fogTargetColor  = Color(0.6, 0.75, 0.95)  -- 目标雾色
 -- 峡谷拖尾特效
 State.trailNodes = {}           -- 拖尾节点列表 { node, life, maxLife }
 
+-- 地面窟窿
+State.holes = {}                -- 活跃窟窿列表 { zStart, zEnd, lanes={}, nodes={} }
+State.nextHoleZ = 60.0          -- 下一个窟窿生成位置
+
 -- 虚空坠落死亡
 State.isVoidFalling = false     -- 是否正在坠入峡谷
 State.voidFallTimer = 0.0       -- 坠落计时器
@@ -106,11 +110,22 @@ function State.ClearAll()
     local children = State.scene:GetChildren()
     for _, child in ipairs(children) do
         local name = child.name
-        if name == "LaneLine" or name == "Wall" or name == "Ground" then
+        if name == "LaneLine" or name == "Wall" or name == "Ground" or name == "Hole" then
             child:Remove()
         end
     end
     State.groundSegments = {}
+
+    -- 清理窟窿
+    for _, hole in ipairs(State.holes) do
+        if hole.nodes then
+            for _, n in ipairs(hole.nodes) do
+                if n then n:Remove() end
+            end
+        end
+    end
+    State.holes = {}
+    State.nextHoleZ = 60.0
 
     -- 重置场景/峡谷状态
     State.biomeIndex = 1
