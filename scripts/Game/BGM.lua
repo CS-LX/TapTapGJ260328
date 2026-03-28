@@ -16,10 +16,8 @@ local targetGains = { 0, 0, 0, 0 }  -- 各轨目标增益
 local currentGains = { 0, 0, 0, 0 }  -- 各轨当前增益（用于平滑过渡）
 local fadeSpeed = 2.0    -- 淡入淡出速度 (gain/秒)
 
-local LOOP_DURATION = 37.0  -- 统一循环时长（秒）
-local elapsed = 0.0         -- 已播放时长
 ---@type Sound[]
-local sounds = {}           -- 缓存 Sound 资源用于重启
+local sounds = {}           -- 缓存 Sound 资源
 
 local TRACKS = {
     "audio/bgm_melody_1.ogg",
@@ -61,7 +59,6 @@ function BGM.Init(scene, opts)
         end
     end
 
-    elapsed = 0.0
     stage = 0
     targetGains = { 0, 0, 0, 0 }
 end
@@ -100,20 +97,9 @@ function BGM.IsMuted()
     return muted
 end
 
---- 每帧更新（平滑过渡增益 + 同步循环）
+--- 每帧更新（平滑过渡增益）
 ---@param dt number
 function BGM.Update(dt)
-    -- 同步循环：到达统一时长后同时重启所有音轨
-    elapsed = elapsed + dt
-    if elapsed >= LOOP_DURATION then
-        elapsed = elapsed - LOOP_DURATION
-        for i = 1, 4 do
-            if sources[i] and sounds[i] then
-                sources[i]:Play(sounds[i])
-            end
-        end
-    end
-
     -- 平滑过渡增益
     local step = fadeSpeed * dt
     for i = 1, 4 do
@@ -143,7 +129,6 @@ function BGM.Destroy()
     currentGains = { 0, 0, 0, 0 }
     targetGains = { 0, 0, 0, 0 }
     sounds = {}
-    elapsed = 0.0
     stage = 0
 end
 
