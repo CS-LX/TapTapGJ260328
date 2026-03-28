@@ -385,6 +385,11 @@ function Player.CheckCollision(obs)
         if not State.isSliding and playerY < 0.3 then
             return true
         end
+    elseif obs.obsType == Config.OBS_OVERHEAD then
+        -- 低天花板：跳跃也躲不过，只能下蹲
+        if not State.isSliding then
+            return true
+        end
     end
 
     return false

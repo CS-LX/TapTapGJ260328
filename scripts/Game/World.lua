@@ -113,7 +113,7 @@ end
 -- ============================================================================
 
 function World.SpawnObstacle(zPos)
-    local obsType = math.random(1, 3)
+    local obsType = math.random(1, 4)
     local lane = math.random(-1, 1)
 
     local node = State.scene:CreateChild("Obstacle")
@@ -178,6 +178,30 @@ function World.SpawnObstacle(zPos)
             local pillarModel = pillar:CreateComponent("StaticModel")
             pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
             pillarModel:SetMaterial(Config.CreatePBRMaterial(Color(0.5, 0.5, 0.5, 1.0), 0.8, 0.3))
+            pillarModel.castShadows = true
+        end
+        obs.lane = -99
+
+    elseif obsType == Config.OBS_OVERHEAD then
+        -- 低天花板：横跨全道，只能下蹲通过，跳跃也会撞到
+        obs.damage = 2
+        node.position = Vector3(0, 1.6, zPos)
+        node.scale = Vector3(Config.TRACK_WIDTH * 0.85, 1.4, 1.2)
+        local model = node:CreateComponent("StaticModel")
+        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        model:SetMaterial(Config.CreatePBRMaterial(Color(0.7, 0.35, 0.8, 1.0), 0.4, 0.5))
+        model.castShadows = true
+
+        -- 两侧支撑柱
+        for side = -1, 1, 2 do
+            local pillar = node:CreateChild("Pillar")
+            local parentScaleX = Config.TRACK_WIDTH * 0.85
+            local parentScaleY = 1.4
+            pillar.position = Vector3(side * 0.45, -0.8 / parentScaleY, 0)
+            pillar.scale = Vector3(0.15 / parentScaleX, 1.6 / parentScaleY, 0.15 / 1.2)
+            local pillarModel = pillar:CreateComponent("StaticModel")
+            pillarModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            pillarModel:SetMaterial(Config.CreatePBRMaterial(Color(0.5, 0.25, 0.6, 1.0), 0.6, 0.4))
             pillarModel.castShadows = true
         end
         obs.lane = -99
