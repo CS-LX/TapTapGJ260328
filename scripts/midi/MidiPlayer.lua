@@ -89,20 +89,15 @@ function MidiPlayer.new(scene, options)
     self.percussionPaths = options.percussionPaths or buildDefaultPercussionPaths()
     self.velocityThreshold = options.velocityThreshold or VELOCITY_THRESHOLD
 
-    -- 音源池 (预创建，避免频繁 CreateComponent/Remove)
-    self.audioNode         = scene:CreateChild("MidiPlayerAudio")
-    self.sourcePool        = {}   -- 空闲 SoundSource 池
-    self.activeSources     = {}   -- 活跃音源 { source, note, channel, gain }
-    self.releasingSources  = {}   -- 正在淡出的音源 { source, gain }
-    self.fadeOutFactor      = options.fadeOutFactor or 0.85    -- 指数淡出因子 (每帧 gain *= factor, ~40帧衰减到静音)
-    self.fadeInFrames       = options.fadeInFrames or 3        -- 淡入帧数 (~50ms@60fps)
+    -- 音源架构: 每个音符 = 独立 Node + SoundSource
+    -- 绝不调 Stop()、绝不在活跃源上调 Play()，避免音频缓冲区不连续导致爆音
+    self.activeSources     = {}   -- 活跃音源 { node, source, note, channel, targetGain }
+    self.releasingSources  = {}   -- 正在淡出的音源 { node, source, startGain, fadeFrame }
+    self.silentSources     = {}   -- gain=0 等待自然结束的音源 { node, source }
+    self.fadeOutFrames     = options.fadeOutFrames or 15       -- 线性淡出帧数 (~250ms@60fps)
+    self.fadeInFrames      = options.fadeInFrames or 3         -- 淡入帧数 (~50ms@60fps)
     self.fadingInSources   = {}   -- 正在淡入的音源 { source, currentGain, targetGain, step }
-
-    -- 预创建音源池
-    for i = 1, self.maxPolyphony do
-        local src = self.audioNode:CreateComponent("SoundSource")
-        self.sourcePool[i] = src
-    end
+    self.nodeCounter       = 0    -- 节点计数器 (用于命名)
 
     -- 轨道过滤: nil = 播放全部, 否则为 { [trackIndex]=true } 集合
     self.enabledTracks   = nil
@@ -248,10 +243,10 @@ function MidiPlayer:update(dt)
 
     self.elapsedTime = self.elapsedTime + dt * self.speed
 
-    -- 清理已结束的音源 & 处理淡入淡出
-    self:cleanupSources()
-    self:fadeFadeInSources(dt)
-    self:fadeReleasingSources(dt)
+    -- 处理淡入淡出 & 清理已结束的音源
+    self:fadeFadeInSources()
+    self:fadeReleasingSources()
+    self:cleanupSilentSources()
 
     -- 触发当前时间之前的所有事件
     local ticksPerBeat = self.midi.ticksPerBeat
@@ -308,26 +303,25 @@ function MidiPlayer:handleNoteOn(evt)
         self.onNoteOn(evt.note, evt.velocity, evt.channel, evt.noteName)
     end
 
-    -- 同音符重触发：将同 note+channel 的旧音源移入淡出列表，避免叠加或硬停
+    -- 同音符重触发：将同 note+channel 的旧音源移入淡出列表
     for i = #self.activeSources, 1, -1 do
         local info = self.activeSources[i]
         if info.note == evt.note and info.channel == evt.channel then
-            if info.source then
-                self.releasingSources[#self.releasingSources + 1] = {
-                    source = info.source,
-                    gain   = info.gain or self.volume,
-                }
-            end
+            self.releasingSources[#self.releasingSources + 1] = {
+                node      = info.node,
+                source    = info.source,
+                startGain = info.source.gain,
+                fadeFrame = 0,
+            }
             table.remove(self.activeSources, i)
         end
     end
 
-    -- 控制复音数：池空时回收最老音源
-    if #self.sourcePool == 0 then
+    -- 控制复音数：超限时回收最老音源
+    local totalActive = #self.activeSources + #self.releasingSources
+    if totalActive >= self.maxPolyphony then
         self:removeOldestSource()
     end
-    -- 仍然没有可用音源则跳过
-    if #self.sourcePool == 0 then return end
 
     -- 获取音频路径 (根据 velocity 选择 Hard/Soft 采样层)
     local soundPath
@@ -347,13 +341,14 @@ function MidiPlayer:handleNoteOn(evt)
     local sound = cache:GetResource("Sound", soundPath)
     if not sound then return end
 
-    -- 从池中取出音源
-    local source = table.remove(self.sourcePool)
+    -- 创建全新 Node + SoundSource (绝不复用正在播放的音源)
+    self.nodeCounter = self.nodeCounter + 1
+    local node = self.scene:CreateChild("MPN" .. self.nodeCounter)
+    local source = node:CreateComponent("SoundSource")
 
     local targetGain = (evt.velocity / 127.0) * self.volume
 
-    -- 以 gain=0 启动播放，避免首帧出现瞬态脉冲
-    -- 不调 Stop()：池中音源已停止，多余的 Stop() 可能触发引擎内部状态重置
+    -- 以 gain=0 启动播放，再淡入
     source.gain = 0
     source:Play(sound)
 
@@ -367,10 +362,11 @@ function MidiPlayer:handleNoteOn(evt)
     }
 
     self.activeSources[#self.activeSources + 1] = {
+        node    = node,
         source  = source,
         note    = evt.note,
         channel = evt.channel,
-        gain    = targetGain,
+        targetGain = targetGain,
     }
 end
 
@@ -380,16 +376,16 @@ function MidiPlayer:handleNoteOff(evt)
         self.onNoteOff(evt.note, evt.velocity, evt.channel, evt.noteName)
     end
 
-    -- 将对应音源移入淡出列表（不立即 Stop，避免噗声）
+    -- 将对应音源移入淡出列表（线性淡出，绝不调 Stop）
     for i = #self.activeSources, 1, -1 do
         local info = self.activeSources[i]
         if info.note == evt.note and info.channel == evt.channel then
-            if info.source then
-                self.releasingSources[#self.releasingSources + 1] = {
-                    source = info.source,
-                    gain   = info.gain or self.volume,
-                }
-            end
+            self.releasingSources[#self.releasingSources + 1] = {
+                node      = info.node,
+                source    = info.source,
+                startGain = info.source.gain,
+                fadeFrame = 0,
+            }
             table.remove(self.activeSources, i)
             break
         end
@@ -400,63 +396,79 @@ end
 -- 音源管理
 ------------------------------------------------------------
 
-function MidiPlayer:cleanupSources()
+--- 清理已静音且自然结束的音源节点（每帧调用）
+--- gain=0 的源等待 IsPlaying()==false 后安全 Remove 节点
+function MidiPlayer:cleanupSilentSources()
+    for i = #self.silentSources, 1, -1 do
+        local info = self.silentSources[i]
+        if not info.source:IsPlaying() then
+            info.node:Remove()
+            table.remove(self.silentSources, i)
+        end
+    end
+    -- 同时清理 activeSources 中已自然结束的（音频比音符短的情况）
     for i = #self.activeSources, 1, -1 do
         local info = self.activeSources[i]
-        if not info.source or not info.source:IsPlaying() then
-            -- 归还到池，重置 gain 防止残留增益污染下次播放
-            if info.source then
-                info.source.gain = 0
-                self.sourcePool[#self.sourcePool + 1] = info.source
-            end
+        if not info.source:IsPlaying() then
+            info.node:Remove()
             table.remove(self.activeSources, i)
         end
     end
 end
 
+--- 回收最老的活跃音源（复音数超限时调用）
+--- 将最老的活跃源移入淡出列表，绝不调 Stop
 function MidiPlayer:removeOldestSource()
-    if #self.activeSources > 0 then
-        local info = table.remove(self.activeSources, 1)
-        if info.source then
-            -- 移入淡出列表而非立即 Stop
-            self.releasingSources[#self.releasingSources + 1] = {
-                source = info.source,
-                gain   = info.gain or self.volume,
-            }
-        end
-    end
-    -- 如果淡出列表也满了，回收增益最低的淡出音源（接近静音，硬停不可闻）
-    if #self.sourcePool == 0 and #self.releasingSources > 0 then
-        local minIdx, minGain = 1, self.releasingSources[1].gain
+    -- 优先从 releasingSources 中回收增益最低的
+    if #self.releasingSources > 0 then
+        local minIdx = 1
+        local minGain = self.releasingSources[1].source.gain
         for i = 2, #self.releasingSources do
-            if self.releasingSources[i].gain < minGain then
+            local g = self.releasingSources[i].source.gain
+            if g < minGain then
                 minIdx = i
-                minGain = self.releasingSources[i].gain
+                minGain = g
             end
         end
         local old = table.remove(self.releasingSources, minIdx)
         old.source.gain = 0
-        old.source:Stop()
-        self.sourcePool[#self.sourcePool + 1] = old.source
+        -- 移入静音列表，等待自然结束后 Remove
+        self.silentSources[#self.silentSources + 1] = {
+            node   = old.node,
+            source = old.source,
+        }
+        return
+    end
+    -- 否则从 activeSources 移除最老的（第一个）
+    if #self.activeSources > 0 then
+        local info = table.remove(self.activeSources, 1)
+        self.releasingSources[#self.releasingSources + 1] = {
+            node      = info.node,
+            source    = info.source,
+            startGain = info.source.gain,
+            fadeFrame = 0,
+        }
     end
 end
 
+--- 优雅停止所有音源（gain 置零 + 等待自然结束，绝不调 Stop）
 function MidiPlayer:stopAllSources()
+    -- 活跃音源 → 静音列表
     for _, info in ipairs(self.activeSources) do
-        if info.source then
-            info.source.gain = 0
-            info.source:Stop()
-            self.sourcePool[#self.sourcePool + 1] = info.source
-        end
+        info.source.gain = 0
+        self.silentSources[#self.silentSources + 1] = {
+            node   = info.node,
+            source = info.source,
+        }
     end
     self.activeSources = {}
-    -- 清理淡出列表
+    -- 淡出中的音源 → 静音列表
     for _, info in ipairs(self.releasingSources) do
-        if info.source then
-            info.source.gain = 0
-            info.source:Stop()
-            self.sourcePool[#self.sourcePool + 1] = info.source
-        end
+        info.source.gain = 0
+        self.silentSources[#self.silentSources + 1] = {
+            node   = info.node,
+            source = info.source,
+        }
     end
     self.releasingSources = {}
     -- 清理淡入列表
@@ -464,13 +476,11 @@ function MidiPlayer:stopAllSources()
 end
 
 --- 处理淡入中的音源（每帧调用，按预计算 step 步进）
----@param dt number
-function MidiPlayer:fadeFadeInSources(dt)
+function MidiPlayer:fadeFadeInSources()
     for i = #self.fadingInSources, 1, -1 do
         local info = self.fadingInSources[i]
         info.currentGain = info.currentGain + info.step
         if info.currentGain >= info.targetGain then
-            -- 淡入完毕
             info.source.gain = info.targetGain
             table.remove(self.fadingInSources, i)
         else
@@ -479,22 +489,24 @@ function MidiPlayer:fadeFadeInSources(dt)
     end
 end
 
---- 处理淡出中的音源（每帧调用，指数衰减：gain *= factor）
---- 指数曲线保证低增益段衰减更慢，避免在接近零时产生硬切
----@param dt number
-function MidiPlayer:fadeReleasingSources(dt)
-    local factor = self.fadeOutFactor
+--- 处理淡出中的音源（每帧调用，线性衰减）
+--- 在 fadeOutFrames 帧内从 startGain 线性降至 0，然后移入 silentSources
+function MidiPlayer:fadeReleasingSources()
+    local totalFrames = math.max(self.fadeOutFrames, 1)
     for i = #self.releasingSources, 1, -1 do
         local info = self.releasingSources[i]
-        info.gain = info.gain * factor
-        if info.gain <= 0.001 then
-            -- 增益足够小，安全停止并归还到池
+        info.fadeFrame = info.fadeFrame + 1
+        local progress = info.fadeFrame / totalFrames  -- 0→1
+        if progress >= 1.0 then
+            -- 淡出完毕，移入静音列表等待自然结束
             info.source.gain = 0
-            info.source:Stop()
-            self.sourcePool[#self.sourcePool + 1] = info.source
+            self.silentSources[#self.silentSources + 1] = {
+                node   = info.node,
+                source = info.source,
+            }
             table.remove(self.releasingSources, i)
         else
-            info.source.gain = info.gain
+            info.source.gain = info.startGain * (1.0 - progress)
         end
     end
 end
@@ -579,10 +591,12 @@ end
 --- 销毁播放器，释放资源
 function MidiPlayer:destroy()
     self:stop()
-    if self.audioNode then
-        self.audioNode:Remove()
-        self.audioNode = nil
+    -- 清理静音列表中等待自然结束的节点
+    for _, info in ipairs(self.silentSources) do
+        info.source.gain = 0
+        info.node:Remove()
     end
+    self.silentSources = {}
 end
 
 ------------------------------------------------------------

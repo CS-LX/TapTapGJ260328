@@ -13,6 +13,7 @@ local Camera      = require "Game.Camera"
 local GameUI      = require "Game.UI"
 local ItemManager = require "Game.Items.ItemManager"
 local MidiPlayer  = require "midi.MidiPlayer"
+local AudioDiag   = require "midi.AudioDiag"
 
 -- 加载道具模块（触发自动注册）
 require "Game.Items.Heart"
@@ -20,6 +21,9 @@ require "Game.Items.Magnet"
 
 -- BGM 播放器实例
 local bgmPlayer = nil
+-- 诊断模式: true 时只运行诊断工具, 不播放 BGM
+local DIAG_MODE = false
+local diagTool = nil
 
 -- ============================================================================
 -- 入口函数
@@ -44,19 +48,25 @@ function Start()
     Player.Create()
     World.CreateInitialGround()
 
-    -- 初始化 BGM 播放器
-    bgmPlayer = MidiPlayer.new(State.scene, {
-        volume = 0.7,
-        loop = true,
-        maxPolyphony = 32,
-    })
-    local ok, err = bgmPlayer:load("audio/BGM.midi.txt")
-    if ok then
-        bgmPlayer:setTracks({1, 4})  -- 只播放第1、4轨道
-        bgmPlayer:play()
-        print("BGM: MIDI loaded, duration=" .. string.format("%.1f", bgmPlayer:getDuration()) .. "s")
+    if DIAG_MODE then
+        -- 诊断模式: 只启动音频诊断工具
+        diagTool = AudioDiag.new(State.scene)
+        print("=== DIAG MODE: Press 1-9 to run tests, 0 to reset ===")
     else
-        print("BGM: Failed to load MIDI - " .. tostring(err))
+        -- 正常模式: 初始化 BGM 播放器
+        bgmPlayer = MidiPlayer.new(State.scene, {
+            volume = 0.7,
+            loop = true,
+            maxPolyphony = 32,
+        })
+        local ok, err = bgmPlayer:load("audio/BGM.midi.txt")
+        if ok then
+            bgmPlayer:setTracks({1, 4})
+            bgmPlayer:play()
+            print("BGM: MIDI loaded, duration=" .. string.format("%.1f", bgmPlayer:getDuration()) .. "s")
+        else
+            print("BGM: Failed to load MIDI - " .. tostring(err))
+        end
     end
 
     -- 订阅事件
@@ -70,6 +80,10 @@ function Start()
 end
 
 function Stop()
+    if diagTool then
+        diagTool:destroy()
+        diagTool = nil
+    end
     if bgmPlayer then
         bgmPlayer:destroy()
         bgmPlayer = nil
@@ -89,16 +103,15 @@ end
 function HandleUpdate(eventType, eventData)
     local dt = eventData["TimeStep"]:GetFloat()
 
+    -- 诊断模式: 只运行诊断工具
+    if diagTool then
+        diagTool:update(dt)
+        return  -- 跳过游戏逻辑
+    end
+
     -- BGM 每帧驱动
     if bgmPlayer then
         bgmPlayer:update(dt)
-        -- DEBUG: 按 1~4 切换对应音轨
-        for i = 1, 4 do
-            if input:GetKeyPress(KEY_1 + i - 1) then
-                local on = bgmPlayer:toggleTrack(i)
-                print(string.format("Track %d: %s", i, on and "ON" or "OFF"))
-            end
-        end
     end
 
     if State.gameState == Config.STATE_MENU then
