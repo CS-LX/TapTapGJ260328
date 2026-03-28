@@ -6,8 +6,7 @@ local Config      = require "Game.Config"
 local State       = require "Game.State"
 local ItemManager = require "Game.Items.ItemManager"
 local BGM         = require "Game.BGM"
-local Traffic     = require "Game.World.Traffic"
-local Buildings   = require "Game.World.Buildings"
+local Scenery     = require "Game.World.Scenery"
 
 local Player = {}
 
@@ -270,10 +269,9 @@ function Player.Update(dt)
                     if obs.extraNode then obs.extraNode:Remove() end
                 end
                 State.obstacles = {}
-                -- 清除车流和建筑
-                Traffic.ClearAll()
-                Buildings.ClearAll()
-                print("[Canyon] Scene switch: cleared obstacles, traffic, buildings")
+                -- 清除侧边装饰
+                Scenery.ClearAll()
+                print("[Canyon] Scene switch: cleared obstacles and scenery")
 
                 -- 飞跃沟壑时推进 BGM 阶段
                 local newStage = 4 - math.min(State.biomeChangeCount, 3)

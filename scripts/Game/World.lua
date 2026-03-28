@@ -8,8 +8,7 @@ local Magnet    = require "Game.Items.Magnet"
 local Canyon    = require "Game.World.Canyon"
 local Holes     = require "Game.World.Holes"
 local JumpPad   = require "Game.World.JumpPad"
-local Traffic   = require "Game.World.Traffic"
-local Buildings = require "Game.World.Buildings"
+local Scenery   = require "Game.World.Scenery"
 
 local World = {}
 
@@ -77,15 +76,11 @@ function World.CreateGroundSegment(zPos, biome)
     mat:SetShaderParameter("Roughness", Variant(0.9))
     model:SetMaterial(mat)
 
-    local isCity = (biome.name == "City")
-
-    -- 跑道线（City 用细砖缝，其他用明显线）
-    local lineW = isCity and 0.04 or 0.08
-    local lineH = isCity and 0.005 or 0.01
+    -- 跑道线
     for i = -1, 1 do
         local lineNode = State.scene:CreateChild("LaneLine")
         lineNode.position = Vector3(i * Config.LANE_WIDTH, 0.01, zPos)
-        lineNode.scale = Vector3(lineW, lineH, Config.TRACK_LENGTH)
+        lineNode.scale = Vector3(0.08, 0.01, Config.TRACK_LENGTH)
         local lineModel = lineNode:CreateComponent("StaticModel")
         lineModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         local lineMat = Material:new()
@@ -96,47 +91,20 @@ function World.CreateGroundSegment(zPos, biome)
         lineModel:SetMaterial(lineMat)
     end
 
-    if isCity then
-        local CS = Config.CITY_SIDEWALK
-        -- 左侧马路（柏油路面）
-        local roadNode = State.scene:CreateChild("RoadSurface")
-        roadNode.position = Vector3(-Config.TRACK_WIDTH / 2 - CS.ROAD_WIDTH / 2, -0.24, zPos)
-        roadNode.scale = Vector3(CS.ROAD_WIDTH, 0.5, Config.TRACK_LENGTH)
-        local roadModel = roadNode:CreateComponent("StaticModel")
-        roadModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        roadModel:SetMaterial(Config.CreatePBRMaterial(CS.ROAD_COLOR, 0.0, 0.92))
-
-        -- 左路缘（人行道与马路之间）
-        local leftCurb = State.scene:CreateChild("Curb")
-        leftCurb.position = Vector3(-Config.TRACK_WIDTH / 2 - 0.125, 0.08, zPos)
-        leftCurb.scale = Vector3(0.25, 0.16, Config.TRACK_LENGTH)
-        local lcm = leftCurb:CreateComponent("StaticModel")
-        lcm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        lcm:SetMaterial(Config.CreatePBRMaterial(CS.CURB_COLOR, 0.0, 0.8))
-
-        -- 右路缘（人行道与建筑之间）
-        local rightCurb = State.scene:CreateChild("Curb")
-        rightCurb.position = Vector3(Config.TRACK_WIDTH / 2 + 0.125, 0.08, zPos)
-        rightCurb.scale = Vector3(0.25, 0.16, Config.TRACK_LENGTH)
-        local rcm = rightCurb:CreateComponent("StaticModel")
-        rcm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        rcm:SetMaterial(Config.CreatePBRMaterial(CS.CURB_COLOR, 0.0, 0.8))
-    else
-        -- 非 City：左右围墙
-        for side = -1, 1, 2 do
-            local wallNode = State.scene:CreateChild("Wall")
-            wallNode.position = Vector3(side * (Config.TRACK_WIDTH / 2 + 0.25), 1.5, zPos)
-            wallNode.scale = Vector3(0.5, 3.0, Config.TRACK_LENGTH)
-            local wallModel = wallNode:CreateComponent("StaticModel")
-            wallModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            local wallMat = Material:new()
-            wallMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-            wallMat:SetShaderParameter("MatDiffColor", Variant(biome.wall))
-            wallMat:SetShaderParameter("Metallic", Variant(0.0))
-            wallMat:SetShaderParameter("Roughness", Variant(0.85))
-            wallModel:SetMaterial(wallMat)
-            wallModel.castShadows = true
-        end
+    -- 左右围墙（自然风路堤/冰壁/岩壁）
+    for side = -1, 1, 2 do
+        local wallNode = State.scene:CreateChild("Wall")
+        wallNode.position = Vector3(side * (Config.TRACK_WIDTH / 2 + 0.25), 1.5, zPos)
+        wallNode.scale = Vector3(0.5, 3.0, Config.TRACK_LENGTH)
+        local wallModel = wallNode:CreateComponent("StaticModel")
+        wallModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        local wallMat = Material:new()
+        wallMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
+        wallMat:SetShaderParameter("MatDiffColor", Variant(biome.wall))
+        wallMat:SetShaderParameter("Metallic", Variant(0.0))
+        wallMat:SetShaderParameter("Roughness", Variant(0.85))
+        wallModel:SetMaterial(wallMat)
+        wallModel.castShadows = true
     end
 
     table.insert(State.groundSegments, { node = node, z = zPos })
@@ -166,33 +134,14 @@ function World.SpawnObstacle(zPos)
     local node = State.scene:CreateChild("Obstacle")
     local obs = { node = node, z = zPos, obsType = obsType, lane = lane }
 
-    local isCity = (State.biomeIndex == 1)
-
     if obsType == Config.OBS_BLOCK then
         obs.damage = 1
         node.position = Vector3(lane * Config.LANE_WIDTH, 0.6, zPos)
-
-        if isCity then
-            -- 花坛：砖红底座 + 绿色灌木球
-            node.scale = Vector3(1.6, 0.6, 0.8)
-            local model = node:CreateComponent("StaticModel")
-            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreatePBRMaterial(Color(0.65, 0.30, 0.20, 1.0), 0.0, 0.85))
-            model.castShadows = true
-            local bush = node:CreateChild("Bush")
-            bush.position = Vector3(0, 1.2, 0)
-            bush.scale = Vector3(0.75, 1.0, 0.75)
-            local bushModel = bush:CreateComponent("StaticModel")
-            bushModel:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
-            bushModel:SetMaterial(Config.CreatePBRMaterial(Color(0.20, 0.55, 0.15, 1.0), 0.0, 0.9))
-            bushModel.castShadows = true
-        else
-            node.scale = Vector3(1.8, 1.2, 0.8)
-            local model = node:CreateComponent("StaticModel")
-            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            model:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
-            model.castShadows = true
-        end
+        node.scale = Vector3(1.8, 1.2, 0.8)
+        local model = node:CreateComponent("StaticModel")
+        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        model:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
+        model.castShadows = true
 
         if math.random() > 0.6 and #solidLanes >= 2 then
             local lane2 = lane
@@ -205,26 +154,11 @@ function World.SpawnObstacle(zPos)
             if lane2 ~= lane then
                 local node2 = State.scene:CreateChild("Obstacle2")
                 node2.position = Vector3(lane2 * Config.LANE_WIDTH, 0.6, zPos)
-                if isCity then
-                    node2.scale = Vector3(1.6, 0.6, 0.8)
-                    local m2 = node2:CreateComponent("StaticModel")
-                    m2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    m2:SetMaterial(Config.CreatePBRMaterial(Color(0.65, 0.30, 0.20, 1.0), 0.0, 0.85))
-                    m2.castShadows = true
-                    local bush2 = node2:CreateChild("Bush")
-                    bush2.position = Vector3(0, 1.2, 0)
-                    bush2.scale = Vector3(0.75, 1.0, 0.75)
-                    local bm2 = bush2:CreateComponent("StaticModel")
-                    bm2:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
-                    bm2:SetMaterial(Config.CreatePBRMaterial(Color(0.20, 0.55, 0.15, 1.0), 0.0, 0.9))
-                    bm2.castShadows = true
-                else
-                    node2.scale = Vector3(1.8, 1.2, 0.8)
-                    local model2 = node2:CreateComponent("StaticModel")
-                    model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    model2:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
-                    model2.castShadows = true
-                end
+                node2.scale = Vector3(1.8, 1.2, 0.8)
+                local model2 = node2:CreateComponent("StaticModel")
+                model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                model2:SetMaterial(Config.CreatePBRMaterial(Color(0.85, 0.2, 0.15, 1.0), 0.3, 0.4))
+                model2.castShadows = true
                 obs.extraNode = node2
                 obs.lane2 = lane2
             end
@@ -270,10 +204,7 @@ function World.SpawnObstacle(zPos)
             node.scale = Vector3(Config.TRACK_WIDTH * barWidthRatio, 0.8, 0.3)
             local model = node:CreateComponent("StaticModel")
             model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            -- City: 公园长椅（木棕色）；其他: 黄色横杆
-            local lowBarColor = isCity and Color(0.55, 0.35, 0.18, 1.0) or Color(0.9, 0.6, 0.1, 1.0)
-            local lowBarMetal = isCity and 0.0 or 0.5
-            model:SetMaterial(Config.CreatePBRMaterial(lowBarColor, lowBarMetal, 0.3))
+            model:SetMaterial(Config.CreatePBRMaterial(Color(0.9, 0.6, 0.1, 1.0), 0.5, 0.3))
             model.castShadows = true
 
         elseif obsType == Config.OBS_HIGH_BAR then
@@ -283,12 +214,10 @@ function World.SpawnObstacle(zPos)
             node.scale = Vector3(barW, 0.5, 0.3)
             local model = node:CreateComponent("StaticModel")
             model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            -- City: 路牌（蓝色牌面 + 灰色金属杆）；其他: 绿色
-            local highBarColor = isCity and Color(0.15, 0.35, 0.75, 1.0) or Color(0.2, 0.7, 0.3, 1.0)
-            model:SetMaterial(Config.CreatePBRMaterial(highBarColor, 0.2, 0.5))
+            model:SetMaterial(Config.CreatePBRMaterial(Color(0.2, 0.7, 0.3, 1.0), 0.2, 0.5))
             model.castShadows = true
 
-            local pillarColor = isCity and Color(0.6, 0.6, 0.6, 1.0) or Color(0.5, 0.5, 0.5, 1.0)
+            local pillarColor = Color(0.5, 0.5, 0.5, 1.0)
             for side = -1, 1, 2 do
                 local pillar = node:CreateChild("Pillar")
                 local parentScaleY = 0.5
@@ -307,12 +236,10 @@ function World.SpawnObstacle(zPos)
             node.scale = Vector3(barW, 1.4, 1.2)
             local model = node:CreateComponent("StaticModel")
             model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            -- City: 脚手架（橙色安全色）；其他: 紫色
-            local overheadColor = isCity and Color(0.90, 0.55, 0.10, 1.0) or Color(0.7, 0.35, 0.8, 1.0)
-            model:SetMaterial(Config.CreatePBRMaterial(overheadColor, 0.4, 0.5))
+            model:SetMaterial(Config.CreatePBRMaterial(Color(0.7, 0.35, 0.8, 1.0), 0.4, 0.5))
             model.castShadows = true
 
-            local oPillarColor = isCity and Color(0.6, 0.6, 0.6, 1.0) or Color(0.5, 0.25, 0.6, 1.0)
+            local oPillarColor = Color(0.5, 0.25, 0.6, 1.0)
             for side = -1, 1, 2 do
                 local pillar = node:CreateChild("Pillar")
                 local parentScaleY = 1.4
@@ -580,7 +507,7 @@ function World.UpdateGround(dt)
     for _, child in ipairs(children) do
         local name = child.name
         if (name == "LaneLine" or name == "Wall" or name == "CanyonMarker"
-            or name == "RoadSurface" or name == "Curb")
+            or name == "Scenery")
             and child.position.z < playerZ - 50 - Config.TRACK_LENGTH then
             child:Remove()
         end
@@ -652,7 +579,6 @@ end
 World.UpdateJumpPads = JumpPad.UpdateAll
 
 -- 导出子模块更新（供 main.lua 调用）
-World.UpdateTraffic   = Traffic.Update
-World.UpdateBuildings = Buildings.Update
+World.UpdateScenery = Scenery.Update
 
 return World

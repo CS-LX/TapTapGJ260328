@@ -57,7 +57,7 @@ State.deathRotZ = 0.0
 State.deathFlashAlpha = 0
 
 -- 场景/峡谷相关
-State.biomeIndex = 1                    -- 当前场景索引 (1=City, 2=Desert, 3=Neon)
+State.biomeIndex = 1                    -- 当前场景索引 (1=Savanna, 2=Glacier, 3=Cliffs)
 State.biomeChangeCount = 0             -- 场景切换累计次数
 State.onBiomeChange = nil              -- 场景切换回调 function(count)
 State.onGameReset = nil                -- 游戏重置回调 function()
@@ -90,11 +90,9 @@ State.isSwiping = false
 -- BGM 按钮区域（用于菜单触摸检测）
 State.bgmBtnRect = nil  -- { x, y, w, h }
 
--- 城市装饰（车流/建筑）
-State.trafficCars = {}         -- 活跃车辆列表
-State.buildings = {}           -- 活跃建筑列表
-State.nextCarZ = 30.0          -- 下一辆车生成 Z
-State.nextBuildingZ = 5.0      -- 下一栋建筑生成 Z
+-- 侧边装饰（自然风景）
+State.sceneryItems = {}        -- 活跃装饰物列表
+State.nextSceneryZ = 10.0      -- 下一个装饰物生成 Z
 
 -- ============================================================================
 -- 状态管理函数
@@ -116,25 +114,18 @@ function State.ClearAll()
     for _, seg in ipairs(State.groundSegments) do
         if seg.node then seg.node:Remove() end
     end
-    -- 清理车流
-    for _, car in ipairs(State.trafficCars) do
-        if car.node then car.node:Remove() end
+    -- 清理侧边装饰
+    for _, item in ipairs(State.sceneryItems) do
+        if item.node then item.node:Remove() end
     end
-    State.trafficCars = {}
-    State.nextCarZ = 30.0
-
-    -- 清理建筑
-    for _, b in ipairs(State.buildings) do
-        if b.node then b.node:Remove() end
-    end
-    State.buildings = {}
-    State.nextBuildingZ = 5.0
+    State.sceneryItems = {}
+    State.nextSceneryZ = 10.0
 
     local children = State.scene:GetChildren()
     for _, child in ipairs(children) do
         local name = child.name
         if name == "LaneLine" or name == "Wall" or name == "Ground" or name == "Hole"
-            or name == "TrafficCar" or name == "Building" or name == "RoadSurface" or name == "Curb" then
+            or name == "Scenery" then
             child:Remove()
         end
     end

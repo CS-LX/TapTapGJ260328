@@ -56,91 +56,100 @@ Config.CANYON_INPUT_LOCK     = 0.3        -- 自动跳跃时锁定变道（秒�
 Config.CANYON_SPEED_BOOST    = 2.5        -- 峡谷飞行速度倍率
 
 Config.BIOMES = {
-    {   -- 城市人行道（淡黄橙色调）
-        name   = "City",
-        ground = Color(0.88, 0.78, 0.55, 1.0),   -- 淡黄橙色人行道
-        lane   = Color(0.65, 0.61, 0.56, 1.0),   -- 低调的砖缝色
-        wall   = Color(0.55, 0.4,  0.35, 1.0),
-        fog    = Color(0.70, 0.75, 0.85),          -- 城市灰蓝雾
+    {   -- 非洲大草原（金色草地）
+        name   = "Savanna",
+        ground = Color(0.78, 0.68, 0.38, 1.0),   -- 干燥金色草地
+        lane   = Color(0.60, 0.50, 0.30, 1.0),   -- 磨损泥土小径
+        wall   = Color(0.65, 0.50, 0.30, 1.0),   -- 土质路堤
+        fog    = Color(0.85, 0.75, 0.50),          -- 暖黄地平线
     },
-    {   -- 沙漠（暖沙色调）
-        name   = "Desert",
-        ground = Color(0.72, 0.55, 0.35, 1.0),
-        lane   = Color(0.95, 0.95, 0.85, 1.0),
-        wall   = Color(0.75, 0.35, 0.2,  1.0),
-        fog    = Color(0.9,  0.8,  0.55),
+    {   -- 南极冰川（冰蓝白色）
+        name   = "Glacier",
+        ground = Color(0.82, 0.90, 0.95, 1.0),   -- 压实冰雪面
+        lane   = Color(0.60, 0.75, 0.88, 1.0),   -- 冰沟纹路
+        wall   = Color(0.55, 0.72, 0.85, 1.0),   -- 冰川壁
+        fog    = Color(0.78, 0.85, 0.95),          -- 冷白蓝雾
     },
-    {   -- 霓虹（暗紫色调）
-        name   = "Neon",
-        ground = Color(0.12, 0.12, 0.18, 1.0),
-        lane   = Color(0.2,  0.9,  0.9,  1.0),
-        wall   = Color(0.5,  0.2,  0.6,  1.0),
-        fog    = Color(0.08, 0.06, 0.18),
+    {   -- 丘陵悬崖（绿棕色地貌）
+        name   = "Cliffs",
+        ground = Color(0.45, 0.55, 0.30, 1.0),   -- 草地泥土
+        lane   = Color(0.60, 0.55, 0.40, 1.0),   -- 石径
+        wall   = Color(0.50, 0.42, 0.32, 1.0),   -- 岩石崖壁
+        fog    = Color(0.60, 0.70, 0.55),          -- 山谷绿雾
     },
 }
 
 -- 地面窟窿配置（按场景索引）
 Config.HOLE_CONFIGS = {
-    -- City: 无窟窿
+    -- Savanna: 无窟窿（开阔草原）
     { enabled = false },
-    -- Desert: 小的单轨窟窿
-    { enabled = true, minLen = 5, maxLen = 10, maxLanes = 1, intervalMin = 35, intervalMax = 55 },
-    -- Neon: 长窟窿，可达2轨（只剩中间一条）
-    { enabled = true, minLen = 10, maxLen = 18, maxLanes = 2, intervalMin = 25, intervalMax = 45 },
+    -- Glacier: 冰裂缝（单车道）
+    { enabled = true, minLen = 6, maxLen = 12, maxLanes = 1, intervalMin = 30, intervalMax = 50 },
+    -- Cliffs: 悬崖边缘（可双车道）
+    { enabled = true, minLen = 8, maxLen = 16, maxLanes = 2, intervalMin = 25, intervalMax = 45 },
 }
 
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 
 -- ============================================================================
--- 城市人行道专属装饰配置
+-- 侧边装饰配置（通用）
 -- ============================================================================
-Config.CITY_SIDEWALK = {
-    -- 车流（左侧马路）
-    CAR_LANES         = { -6.5, -8.5 },     -- 两条车道 X 坐标
-    ROAD_WIDTH        = 5.0,                 -- 马路宽度
-    CAR_SPEED_MIN     = 0.6,                 -- 车速 = 玩家速度 × 倍率
-    CAR_SPEED_MAX     = 0.9,
-    CAR_INTERVAL_MIN  = 8.0,                 -- 车间距（米）
-    CAR_INTERVAL_MAX  = 16.0,
-    CAR_SPAWN_AHEAD   = 120.0,              -- 前方生成距离
-    CAR_DESPAWN_BEHIND = 30.0,              -- 后方回收距离
-    MAX_ACTIVE_CARS   = 20,
+Config.SCENERY = {
+    SPAWN_AHEAD    = 120.0,
+    DESPAWN_BEHIND = 30.0,
+    MAX_ACTIVE     = 40,
+    INTERVAL_MIN   = 6.0,
+    INTERVAL_MAX   = 14.0,
 
-    -- 建筑（右侧房屋/商铺）
-    BUILDING_X_BASE    = 5.5,               -- 建筑左边缘紧贴右路缘
-    BUILDING_GAP       = 0.8,               -- 建筑间距（米）
-    BUILDING_SPAWN_AHEAD  = 120.0,
-    BUILDING_DESPAWN_BEHIND = 30.0,
-    MAX_ACTIVE_BUILDINGS = 30,
+    SAVANNA = {
+        TRUNK_COLOR   = Color(0.45, 0.30, 0.15, 1.0),  -- 树干
+        CANOPY_COLOR  = Color(0.35, 0.50, 0.20, 1.0),  -- 树冠
+        ROCK_COLORS   = {
+            Color(0.60, 0.50, 0.35, 1.0),
+            Color(0.55, 0.45, 0.30, 1.0),
+            Color(0.50, 0.42, 0.32, 1.0),
+        },
+        GRASS_COLOR   = Color(0.70, 0.65, 0.30, 1.0),  -- 高草
+    },
+    GLACIER = {
+        ICE_COLORS = {
+            Color(0.70, 0.85, 0.95, 1.0),
+            Color(0.55, 0.75, 0.90, 1.0),
+            Color(0.80, 0.90, 0.97, 1.0),
+        },
+        SNOW_COLOR = Color(0.92, 0.94, 0.96, 1.0),
+    },
+    CLIFFS = {
+        PINE_TRUNK_COLOR  = Color(0.35, 0.22, 0.12, 1.0),
+        PINE_NEEDLE_COLOR = Color(0.15, 0.40, 0.15, 1.0),
+        ROCK_COLORS = {
+            Color(0.45, 0.40, 0.35, 1.0),
+            Color(0.50, 0.45, 0.38, 1.0),
+            Color(0.40, 0.38, 0.32, 1.0),
+        },
+        BUSH_COLOR  = Color(0.25, 0.50, 0.20, 1.0),
+    },
+}
 
-    -- 颜色库
-    CAR_COLORS = {
-        Color(0.85, 0.15, 0.15, 1.0),  -- 红
-        Color(0.15, 0.45, 0.85, 1.0),  -- 蓝
-        Color(0.95, 0.95, 0.90, 1.0),  -- 白
-        Color(0.20, 0.20, 0.22, 1.0),  -- 黑
-        Color(0.75, 0.75, 0.70, 1.0),  -- 银
-        Color(0.90, 0.75, 0.20, 1.0),  -- 黄
+-- 窟窿视觉配置（按场景索引）
+Config.HOLE_VISUALS = {
+    { },  -- Savanna: 无窟窿
+    {   -- Glacier: 冰裂缝
+        bottomColor   = Color(0.03, 0.06, 0.15, 1.0),
+        wallColor     = Color(0.40, 0.65, 0.85, 1.0),
+        wallEmissive  = Color(0.10, 0.20, 0.40),
+        edgeColor     = Color(0.70, 0.85, 0.95, 1.0),
+        edgeEmissive  = Color(0.15, 0.30, 0.50),
+        fragmentColor = Color(0.75, 0.88, 0.95, 1.0),
     },
-    BUILDING_COLORS = {
-        Color(0.85, 0.82, 0.75, 1.0),  -- 米白
-        Color(0.78, 0.72, 0.62, 1.0),  -- 暖灰
-        Color(0.70, 0.60, 0.50, 1.0),  -- 棕灰
-        Color(0.90, 0.85, 0.78, 1.0),  -- 奶白
-        Color(0.65, 0.62, 0.58, 1.0),  -- 水泥灰
-        Color(0.82, 0.70, 0.55, 1.0),  -- 土黄
+    {   -- Cliffs: 悬崖边缘
+        bottomColor   = Color(0.05, 0.05, 0.03, 1.0),
+        wallColor     = Color(0.45, 0.38, 0.28, 1.0),
+        edgeColor     = Color(0.55, 0.45, 0.30, 1.0),
+        fragmentColor = Color(0.50, 0.42, 0.30, 1.0),
+        grassColor    = Color(0.40, 0.55, 0.25, 1.0),
     },
-    AWNING_COLORS = {
-        Color(0.85, 0.25, 0.20, 1.0),  -- 红
-        Color(0.20, 0.55, 0.30, 1.0),  -- 绿
-        Color(0.20, 0.35, 0.75, 1.0),  -- 蓝
-        Color(0.90, 0.60, 0.15, 1.0),  -- 橙
-    },
-
-    -- 马路/路缘颜色
-    ROAD_COLOR = Color(0.25, 0.25, 0.28, 1.0),  -- 柏油路
-    CURB_COLOR = Color(0.70, 0.68, 0.65, 1.0),  -- 路缘石
 }
 
 -- 工具函数：创建 PBR 材质
