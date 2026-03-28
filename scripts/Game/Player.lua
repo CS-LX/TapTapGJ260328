@@ -249,9 +249,11 @@ function Player.Update(dt)
         end
     end
 
-    -- 自动跳跃落地后清除标记
+    -- 自动跳跃落地后清除标记，并给予短暂无敌
     if State.isAutoJumping and not State.isJumping then
         State.isAutoJumping = false
+        State.isInvincible = true
+        State.invincibleTimer = 1.5
     end
 
     local pos = State.playerNode.position

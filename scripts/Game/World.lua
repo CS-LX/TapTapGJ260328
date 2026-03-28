@@ -244,7 +244,7 @@ function World.UpdateObstacles(dt)
         if obsZ < playerZ - Config.DESPAWN_DISTANCE then
             table.insert(toRemove, i)
         else
-            if not obs.hit and not State.isInvincible and math.abs(obsZ - playerZ) < 0.8 then
+            if not obs.hit and not State.isInvincible and not State.isAutoJumping and math.abs(obsZ - playerZ) < 0.8 then
                 if Player.CheckCollision(obs) then
                     obs.hit = true
                     local damage = obs.damage or 1
