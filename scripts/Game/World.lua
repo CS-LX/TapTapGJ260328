@@ -269,7 +269,7 @@ function World.UpdateObstacles(dt)
     local playerZ = State.playerNode.position.z
 
     while State.nextObstacleZ < playerZ + Config.SPAWN_DISTANCE do
-        State.nextObstacleZ = World.SkipCanyon(State.nextObstacleZ)
+        State.nextObstacleZ = World.SkipCanyon(State.nextObstacleZ, 30)
         World.SpawnObstacle(State.nextObstacleZ)
         -- 障碍间距随速度增大：速度越快间距越大，保证反应时间
         local speedRatio = State.runSpeed / Config.START_SPEED
@@ -517,11 +517,14 @@ function World.IsInCanyon(z)
     return false
 end
 
---- 如果 z 落在峡谷内，跳过到峡谷后方；否则原样返回
-function World.SkipCanyon(z)
+--- 如果 z 落在峡谷（含缓冲区）内，跳过到峡谷后方；否则原样返回
+--- @param z number
+--- @param buffer number|nil 缓冲距离（默认5米，障碍物建议传30）
+function World.SkipCanyon(z, buffer)
+    buffer = buffer or 5
     for _, canyon in ipairs(State.canyons) do
-        if z >= canyon.startZ - 5 and z <= canyon.endZ + 5 then
-            return canyon.endZ + 10
+        if z >= canyon.startZ - buffer and z <= canyon.endZ + buffer then
+            return canyon.endZ + buffer + 5
         end
     end
     return z
