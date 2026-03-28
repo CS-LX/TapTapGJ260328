@@ -650,20 +650,20 @@ function World.CreateJumpPad(canyon)
         local arrowNode = State.scene:CreateChild("JumpPadArrow")
         arrowNode.position = Vector3(0, 0.6 + (i - 1) * 1.1, triggerZ)
 
-        -- 左臂 "\"
+        -- 左臂 "/"
         local left = arrowNode:CreateChild("L")
         left.position = Vector3(-0.4, 0, 0)
-        left.rotation = Quaternion(0, 0, 35)
+        left.rotation = Quaternion(0, 0, -35)
         left.scale = Vector3(0.12, 0.9, 0.12)
         local lm = left:CreateComponent("StaticModel")
         lm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         lm:SetMaterial(arrowMat)
         lm.castShadows = false
 
-        -- 右臂 "/"
+        -- 右臂 "\"
         local right = arrowNode:CreateChild("R")
         right.position = Vector3(0.4, 0, 0)
-        right.rotation = Quaternion(0, 0, -35)
+        right.rotation = Quaternion(0, 0, 35)
         right.scale = Vector3(0.12, 0.9, 0.12)
         local rm = right:CreateComponent("StaticModel")
         rm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
