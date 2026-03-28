@@ -24,7 +24,7 @@ Config.TRACK_LENGTH     = 200.0        -- 每段地面长度
 Config.TRACK_WIDTH      = 10.0         -- 地面宽度
 
 Config.START_SPEED      = 12.0         -- 初始速度（米/秒）
-Config.MAX_SPEED        = 30.0         -- 最大速度
+Config.MAX_SPEED        = 150.0        -- 最大速度
 Config.SPEED_INCREASE   = 0.3          -- 每秒加速
 Config.LANE_SWITCH_SPEED = 12.0        -- 切换跑道速度
 Config.JUMP_VELOCITY    = 10.0         -- 跳跃初速度
@@ -91,7 +91,8 @@ Config.HOLE_CONFIGS = {
 }
 
 -- 大运大货车配置
-Config.DAYUN_SCORE_THRESHOLD  = 50000   -- 激活分数阈值
+Config.DAYUN_SCORE_THRESHOLD  = 50000   -- 首次激活分数阈值
+Config.DAYUN_REPEAT_INTERVAL  = 25000   -- 之后每隔此分数可再次触发
 Config.DAYUN_DURATION         = 10.0    -- 持续时间（秒）
 Config.DAYUN_INVINCIBLE_AFTER = 2.0     -- 失效后无敌缓冲（秒）
 

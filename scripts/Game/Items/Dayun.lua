@@ -374,7 +374,8 @@ end
 
 function Dayun.Activate()
     State.isDayunActive = true
-    State.dayunTriggered = true
+    -- 设置下次触发阈值（当前分数 + 间隔）
+    State.dayunNextThreshold = State.score + Config.DAYUN_REPEAT_INTERVAL
     Dayun.timer = Config.DAYUN_DURATION
     Dayun.notifyTimer = 2.5
     Dayun.smashCooldown = 0.0
@@ -616,10 +617,9 @@ function Dayun.Update(dt)
             Dayun.Deactivate()
         end
     else
-        -- 检测激活条件
-        if not State.dayunTriggered
-            and State.gameState == Config.STATE_PLAYING
-            and State.score >= Config.DAYUN_SCORE_THRESHOLD then
+        -- 检测激活条件（可重复触发）
+        if State.gameState == Config.STATE_PLAYING
+            and State.score >= State.dayunNextThreshold then
             Dayun.Activate()
         end
     end

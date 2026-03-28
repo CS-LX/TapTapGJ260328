@@ -83,7 +83,7 @@ State.voidFallTimer = 0.0       -- 坠落计时器
 
 -- 大运大货车
 State.isDayunActive = false     -- 大运是否激活
-State.dayunTriggered = false    -- 本局是否已触发过（防重复）
+State.dayunNextThreshold = Config.DAYUN_SCORE_THRESHOLD  -- 下次触发分数阈值
 
 -- 视觉特效状态（峡谷飞跃 + 大运速度感）
 State.fxFovCurrent         = 45.0              -- 当前 FOV（平滑插值）
@@ -170,7 +170,7 @@ function State.ClearAll()
     State.voidFallTimer = 0.0
     -- 大运重置
     State.isDayunActive = false
-    State.dayunTriggered = false
+    State.dayunNextThreshold = Config.DAYUN_SCORE_THRESHOLD
     -- 视觉特效重置
     State.fxFovCurrent         = 45.0
     State.fxFovTarget          = 45.0
