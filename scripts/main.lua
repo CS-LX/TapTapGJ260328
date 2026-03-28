@@ -498,8 +498,9 @@ function StartGame()
     -- 清除旧障碍物和金币
     ClearAll()
 
-    -- 重置位置
+    -- 重置位置和旋转
     playerNode_.position = Vector3(0, 0, 0)
+    playerNode_.rotation = Quaternion(0, 0, 0)
     nextObstacleZ_ = 30.0
     nextCoinZ_ = 15.0
 
