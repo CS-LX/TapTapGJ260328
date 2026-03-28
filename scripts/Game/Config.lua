@@ -90,6 +90,11 @@ Config.HOLE_CONFIGS = {
     { enabled = true, minLen = 8, maxLen = 16, maxLanes = 2, intervalMin = 25, intervalMax = 45 },
 }
 
+-- 大运大货车配置
+Config.DAYUN_SCORE_THRESHOLD  = 50000   -- 激活分数阈值
+Config.DAYUN_DURATION         = 10.0    -- 持续时间（秒）
+Config.DAYUN_INVINCIBLE_AFTER = 2.0     -- 失效后无敌缓冲（秒）
+
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 

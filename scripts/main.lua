@@ -18,6 +18,7 @@ local SFX         = require "Game.SFX"
 -- 加载道具模块（触发自动注册）
 require "Game.Items.Heart"
 require "Game.Items.Magnet"
+require "Game.Items.Dayun"
 
 -- ============================================================================
 -- 入口函数

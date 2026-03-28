@@ -82,11 +82,14 @@ function Player.HandlePlayingInput(dt)
     if State.isVoidFalling then return end
     if State.autoJumpInputLock > 0 then return end
 
-    if input:GetKeyPress(KEY_A) or input:GetKeyPress(KEY_LEFT) then
-        Player.SwitchLane(-1)
-    end
-    if input:GetKeyPress(KEY_D) or input:GetKeyPress(KEY_RIGHT) then
-        Player.SwitchLane(1)
+    -- 大运期间锁定变道（占满3赛道，无需切换）
+    if not State.isDayunActive then
+        if input:GetKeyPress(KEY_A) or input:GetKeyPress(KEY_LEFT) then
+            Player.SwitchLane(-1)
+        end
+        if input:GetKeyPress(KEY_D) or input:GetKeyPress(KEY_RIGHT) then
+            Player.SwitchLane(1)
+        end
     end
     if input:GetKeyPress(KEY_SPACE) or input:GetKeyPress(KEY_UP) or input:GetKeyPress(KEY_W) then
         Player.Jump()
@@ -145,10 +148,13 @@ function Player.HandleTouchMove(eventType, eventData)
 
     if math.abs(dx) > threshold or math.abs(dy) > threshold then
         if math.abs(dx) > math.abs(dy) then
-            if dx > 0 then
-                Player.SwitchLane(1)
-            else
-                Player.SwitchLane(-1)
+            -- 大运期间锁定变道
+            if not State.isDayunActive then
+                if dx > 0 then
+                    Player.SwitchLane(1)
+                else
+                    Player.SwitchLane(-1)
+                end
             end
         else
             if dy < 0 then
@@ -301,12 +307,13 @@ function Player.Update(dt)
     local pos = State.playerNode.position
 
     -- 判断玩家是否在峡谷上方（无地面）
-    local overCanyon = World.IsInCanyon(pos.z) and not State.isAutoJumping
+    local immune = State.isAutoJumping or State.isDayunActive
+    local overCanyon = World.IsInCanyon(pos.z) and not immune
 
     -- 判断玩家是否在窟窿上方（按当前所在车道）
     local nearestLane = math.floor((pos.x / Config.LANE_WIDTH) + 0.5)
     nearestLane = math.max(-1, math.min(1, nearestLane))
-    local overHole = World.IsOverHole(pos.z, nearestLane) and not State.isAutoJumping
+    local overHole = World.IsOverHole(pos.z, nearestLane) and not immune
 
     -- 合并：无地面 = 峡谷 或 窟窿
     local overVoid = overCanyon or overHole

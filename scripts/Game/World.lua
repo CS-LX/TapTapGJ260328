@@ -6,6 +6,7 @@ local Config    = require "Game.Config"
 local State     = require "Game.State"
 local SFX       = require "Game.SFX"
 local Magnet    = require "Game.Items.Magnet"
+local Dayun     = require "Game.Items.Dayun"
 local Canyon    = require "Game.World.Canyon"
 local Holes     = require "Game.World.Holes"
 local JumpPad   = require "Game.World.JumpPad"
@@ -505,25 +506,31 @@ function World.UpdateObstacles(dt)
         if obsZ < playerZ - Config.DESPAWN_DISTANCE then
             table.insert(toRemove, i)
         else
-            if not obs.hit and not State.isInvincible and not State.isAutoJumping and math.abs(obsZ - playerZ) < 0.8 then
-                if Player.CheckCollision(obs) then
+            if not obs.hit and math.abs(obsZ - playerZ) < 0.8 then
+                if State.isDayunActive then
+                    -- 大运模式：撞飞所有障碍
                     obs.hit = true
-                    local damage = obs.damage or 1
-                    State.health = State.health - damage
-                    if State.health <= 0 then
-                        State.health = 0
-                        SFX.PlayRandom({
-                            "laugh_private_1.ogg",
-                            "laugh_private_2.ogg",
-                            "laugh_private_3.ogg",
-                        }, 0.9)
-                        State.GameOver()
-                        return
-                    else
-                        SFX.Play("thud.ogg", 0.7)
-                        State.isInvincible = true
-                        State.invincibleTimer = Config.INVINCIBLE_DURATION
-                        State.hitFlashAlpha = 180
+                    Dayun.SmashObstacle(obs)
+                elseif not State.isInvincible and not State.isAutoJumping then
+                    if Player.CheckCollision(obs) then
+                        obs.hit = true
+                        local damage = obs.damage or 1
+                        State.health = State.health - damage
+                        if State.health <= 0 then
+                            State.health = 0
+                            SFX.PlayRandom({
+                                "laugh_private_1.ogg",
+                                "laugh_private_2.ogg",
+                                "laugh_private_3.ogg",
+                            }, 0.9)
+                            State.GameOver()
+                            return
+                        else
+                            SFX.Play("thud.ogg", 0.7)
+                            State.isInvincible = true
+                            State.invincibleTimer = Config.INVINCIBLE_DURATION
+                            State.hitFlashAlpha = 180
+                        end
                     end
                 end
             end

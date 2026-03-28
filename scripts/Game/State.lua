@@ -81,6 +81,10 @@ State.nextHoleZ = 60.0          -- 下一个窟窿生成位置
 State.isVoidFalling = false     -- 是否正在坠入峡谷
 State.voidFallTimer = 0.0       -- 坠落计时器
 
+-- 大运大货车
+State.isDayunActive = false     -- 大运是否激活
+State.dayunTriggered = false    -- 本局是否已触发过（防重复）
+
 -- 动画相关
 State.playerRunAngle = 0.0
 State.swipeStartX = 0
@@ -151,6 +155,9 @@ function State.ClearAll()
     State.autoJumpInputLock = 0.0
     State.isVoidFalling = false
     State.voidFallTimer = 0.0
+    -- 大运重置
+    State.isDayunActive = false
+    State.dayunTriggered = false
     -- 清理拖尾节点
     for _, trail in ipairs(State.trailNodes) do
         if trail.node then trail.node:Remove() end
