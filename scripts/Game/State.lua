@@ -45,6 +45,10 @@ State.groundSegments = {}     -- 地面段
 -- 道具系统
 State.heartNodes = {}              -- 心心道具列表
 State.nextHeartZ = 50.0            -- 下一个心心Z位置
+State.magnetNodes = {}             -- 磁铁道具列表
+State.nextMagnetZ = 40.0           -- 下一个磁铁Z位置
+State.magnetActive = false         -- 磁铁是否激活
+State.magnetTimer = 0.0            -- 磁铁剩余时间
 
 -- 血量系统
 State.health = Config.MAX_HEALTH
@@ -87,6 +91,13 @@ function State.ClearAll()
         if heart.node then heart.node:Remove() end
     end
     State.heartNodes = {}
+
+    for _, magnet in ipairs(State.magnetNodes) do
+        if magnet.node then magnet.node:Remove() end
+    end
+    State.magnetNodes = {}
+    State.magnetActive = false
+    State.magnetTimer = 0.0
 
     for _, seg in ipairs(State.groundSegments) do
         if seg.node then seg.node:Remove() end

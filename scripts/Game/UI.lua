@@ -155,6 +155,20 @@ function GameUI.DrawHUD(w, h)
     nvgFillColor(vg, nvgRGBA(180, 180, 180, 180))
     nvgText(vg, w - 20, 50, string.format("%.0f m", State.distanceTraveled))
 
+    -- 磁铁激活状态指示
+    if State.magnetActive then
+        local magnetAlpha = 255
+        -- 最后2秒闪烁提示即将结束
+        if State.magnetTimer < 2.0 then
+            magnetAlpha = math.floor(math.abs(math.sin(GetTime():GetElapsedTime() * 6)) * 255)
+        end
+        nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+        nvgFontSize(vg, 20)
+        nvgFillColor(vg, nvgRGBA(80, 160, 255, magnetAlpha))
+        local remainText = string.format("🧲 %.1fs", State.magnetTimer)
+        nvgText(vg, w / 2 + 50, 35, remainText)
+    end
+
     -- 浮动得分弹出文字
     local camera = State.cameraNode:GetComponent("Camera")
     for _, popup in ipairs(State.scorePopups) do
@@ -173,14 +187,15 @@ function GameUI.DrawHUD(w, h)
             nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
 
             local popupText = popup.text or "+50"
-            local isHeart = popup.text ~= nil
 
             -- 阴影
             nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.5)))
             nvgText(vg, sx + 1, sy + 1, popupText)
-            -- 文字颜色：心心用红色，金币用金色
-            if isHeart then
+            -- 文字颜色：心心红色、磁铁蓝色、金币金色
+            if popup.text == "+❤️" then
                 nvgFillColor(vg, nvgRGBA(255, 80, 80, alpha))
+            elseif popup.text and popup.text:find("磁铁") then
+                nvgFillColor(vg, nvgRGBA(80, 160, 255, alpha))
             else
                 nvgFillColor(vg, nvgRGBA(255, 230, 50, alpha))
             end

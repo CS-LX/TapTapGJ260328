@@ -268,6 +268,175 @@ function World.SpawnHeart(zPos)
 end
 
 -- ============================================================================
+-- 磁铁道具生成
+-- ============================================================================
+
+function World.SpawnMagnet(zPos)
+    local lane = math.random(-1, 1)
+
+    local magnetNode = State.scene:CreateChild("Magnet")
+    magnetNode.position = Vector3(
+        lane * Config.LANE_WIDTH,
+        Config.MAGNET_HEIGHT,
+        zPos
+    )
+
+    -- 使用 BillboardSet 显示磁铁图片
+    local bbSet = magnetNode:CreateComponent("BillboardSet")
+    bbSet.numBillboards = 1
+    bbSet.sorted = true
+    bbSet.faceCameraMode = FC_ROTATE_XYZ
+
+    local magnetMat = Material:new()
+    magnetMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
+    magnetMat:SetTexture(0, cache:GetResource("Texture2D", "image/magnet_item_20260328065603.png"))
+    magnetMat:SetShaderParameter("MatDiffColor", Variant(Color(1.0, 1.0, 1.0, 1.0)))
+    bbSet:SetMaterial(magnetMat)
+
+    local bb = bbSet:GetBillboard(0)
+    bb.position = Vector3(0, 0, 0)
+    bb.size = Vector2(0.7, 0.7)
+    bb.enabled = true
+    bbSet:Commit()
+
+    -- 蓝色点光源
+    local lightNode = magnetNode:CreateChild("MagnetLight")
+    local light = lightNode:CreateComponent("Light")
+    light.lightType = LIGHT_POINT
+    light.range = 3.0
+    light.color = Color(0.2, 0.4, 1.0)
+    light.brightness = 1.5
+    light.castShadows = false
+
+    table.insert(State.magnetNodes, {
+        node = magnetNode,
+        z = zPos,
+        lane = lane,
+        collected = false,
+        baseSize = 0.7,
+    })
+end
+
+-- ============================================================================
+-- 磁铁道具更新
+-- ============================================================================
+
+function World.UpdateMagnets(dt)
+    local playerZ = State.playerNode.position.z
+    local playerX = State.playerNode.position.x
+
+    -- 磁铁激活倒计时
+    if State.magnetActive then
+        State.magnetTimer = State.magnetTimer - dt
+        if State.magnetTimer <= 0 then
+            State.magnetActive = false
+            State.magnetTimer = 0
+        end
+    end
+
+    -- 生成新磁铁
+    while State.nextMagnetZ < playerZ + Config.SPAWN_DISTANCE do
+        World.SpawnMagnet(State.nextMagnetZ)
+        State.nextMagnetZ = State.nextMagnetZ + Config.MAGNET_INTERVAL + math.random() * 15
+    end
+
+    local toRemove = {}
+    for i, magnet in ipairs(State.magnetNodes) do
+        if magnet.node and not magnet.collected then
+            if magnet.collecting then
+                -- 收集动画
+                magnet.collectTimer = magnet.collectTimer + dt
+                local t = magnet.collectTimer / 0.5
+
+                if t >= 1.0 then
+                    magnet.collected = true
+                    magnet.node:Remove()
+                    magnet.node = nil
+                else
+                    local pos = magnet.node.position
+                    pos.y = magnet.collectOriginY + t * 3.0
+                    magnet.node.position = pos
+
+                    local s
+                    if t < 0.3 then
+                        s = 0.7 * (1.0 + t / 0.3 * 1.5)
+                    else
+                        s = 1.75 * (1.0 - (t - 0.3) / 0.7)
+                    end
+                    local bbSet = magnet.node:GetComponent("BillboardSet")
+                    if bbSet then
+                        local bb = bbSet:GetBillboard(0)
+                        bb.size = Vector2(s, s)
+                        bbSet:Commit()
+                    end
+                end
+            else
+                -- 上下浮动 + 呼吸脉冲 + 光效
+                local elapsed = GetTime():GetElapsedTime()
+                local phase = elapsed * 2.5 + magnet.z
+                local baseY = Config.MAGNET_HEIGHT
+                local floatOffset = math.sin(phase) * 0.35
+                local pos = magnet.node.position
+                pos.y = baseY + floatOffset
+                magnet.node.position = pos
+
+                local pulse = 0.7 + math.sin(elapsed * 4.0 + magnet.z) * 0.1
+                local bbSet = magnet.node:GetComponent("BillboardSet")
+                if bbSet then
+                    local bb = bbSet:GetBillboard(0)
+                    bb.size = Vector2(pulse, pulse)
+                    bbSet:Commit()
+                end
+
+                local lightNode = magnet.node:GetChild("MagnetLight")
+                if lightNode then
+                    local light = lightNode:GetComponent("Light")
+                    if light then
+                        light.brightness = 1.2 + math.sin(elapsed * 3.0 + magnet.z) * 0.6
+                    end
+                end
+
+                -- 碰撞检测
+                local magnetPos = magnet.node.position
+                local dz = math.abs(magnetPos.z - playerZ)
+                local dx = math.abs(magnetPos.x - playerX)
+                if dz < 1.0 and dx < 1.0 then
+                    magnet.collecting = true
+                    magnet.collectTimer = 0.0
+                    magnet.collectOriginY = magnetPos.y
+
+                    -- 激活磁铁效果
+                    State.magnetActive = true
+                    State.magnetTimer = Config.MAGNET_DURATION
+
+                    -- 弹出文字
+                    table.insert(State.scorePopups, {
+                        worldPos = Vector3(magnetPos.x, magnetPos.y, magnetPos.z),
+                        baseY = magnetPos.y + 0.5,
+                        timer = 0,
+                        duration = 0.8,
+                        text = "🧲磁铁!",
+                    })
+                end
+
+                if magnetPos.z < playerZ - Config.DESPAWN_DISTANCE then
+                    table.insert(toRemove, i)
+                end
+            end
+        elseif magnet.collected then
+            table.insert(toRemove, i)
+        end
+    end
+
+    for i = #toRemove, 1, -1 do
+        local idx = toRemove[i]
+        local magnet = State.magnetNodes[idx]
+        if magnet.node then magnet.node:Remove() end
+        table.remove(State.magnetNodes, idx)
+    end
+end
+
+-- ============================================================================
 -- 心心道具更新
 -- ============================================================================
 
@@ -471,6 +640,23 @@ function World.UpdateCoins(dt)
                 end
             else
                 coin.node:Rotate(Quaternion(0, 120 * dt, 0))
+
+                -- 磁铁吸引效果
+                if State.magnetActive then
+                    local coinPos = coin.node.position
+                    local toPlayerX = playerX - coinPos.x
+                    local toPlayerZ = playerZ - coinPos.z
+                    local toPlayerY = 0.8 - coinPos.y  -- 吸向玩家身体中心
+                    local dist = math.sqrt(toPlayerX * toPlayerX + toPlayerZ * toPlayerZ)
+                    if dist < Config.MAGNET_RANGE and dist > 0.1 then
+                        local speed = Config.MAGNET_PULL_SPEED * (1.0 - dist / Config.MAGNET_RANGE) + 5.0
+                        local nx, nz = toPlayerX / dist, toPlayerZ / dist
+                        coinPos.x = coinPos.x + nx * speed * dt
+                        coinPos.z = coinPos.z + nz * speed * dt
+                        coinPos.y = coinPos.y + toPlayerY * 3.0 * dt
+                        coin.node.position = coinPos
+                    end
+                end
 
                 local coinPos = coin.node.position
                 local dz = math.abs(coinPos.z - playerZ)

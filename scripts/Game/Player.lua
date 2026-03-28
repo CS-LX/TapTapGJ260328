@@ -200,6 +200,9 @@ function Player.StartGame()
     State.nextObstacleZ = 30.0
     State.nextCoinZ = 15.0
     State.nextHeartZ = 50.0
+    State.nextMagnetZ = 40.0
+    State.magnetActive = false
+    State.magnetTimer = 0.0
 
     -- 重新生成地面
     World.CreateInitialGround()
