@@ -421,6 +421,135 @@ function World.SpawnObstacle(zPos)
         or obsType == Config.OBS_HIGH_BAR
         or obsType == Config.OBS_OVERHEAD then
 
+        -- ================================================================
+        -- Glacier (biome 2): 冰刺+冰山混合生成（替代栏板系统）
+        -- ================================================================
+        if State.biomeIndex == 2 then
+            node:Remove()  -- 移除预创建的节点，改为按轨道生成
+
+            -- 保证至少留一条轨道空出
+            local openIdx = math.random(1, #solidLanes)
+            local iceMat = Config.CreatePBRMaterial(
+                Color(0.65, 0.85, 0.95, 1.0), 0.35, 0.10)
+            local iceDarkMat = Config.CreatePBRMaterial(
+                Color(0.45, 0.65, 0.80, 1.0), 0.40, 0.12)
+
+            for i, sl in ipairs(solidLanes) do
+                if i ~= openIdx then
+                    local laneX = sl * Config.LANE_WIDTH
+                    -- LOW_BAR 偏向冰刺，HIGH_BAR/OVERHEAD 偏向冰山
+                    local icebergChance = (obsType == Config.OBS_LOW_BAR) and 0.3 or 0.6
+                    local isIceberg = math.random() < icebergChance
+
+                    if isIceberg then
+                        -- === 冰山墙 ===
+                        local iceNode = State.scene:CreateChild("Iceberg")
+                        iceNode.position = Vector3(laneX, 0, zPos)
+
+                        -- 主体：高大冰块
+                        local wallH = 3.0 + math.random() * 1.0
+                        local wallW = 1.8
+                        local wallD = 0.8 + math.random() * 0.4
+                        local mainWall = iceNode:CreateChild("IceWall")
+                        mainWall.position = Vector3(0, wallH * 0.5, 0)
+                        mainWall.scale = Vector3(wallW, wallH, wallD)
+                        local wm = mainWall:CreateComponent("StaticModel")
+                        wm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                        wm:SetMaterial(iceMat)
+                        wm.castShadows = true
+
+                        -- 顶部尖角（不规则锥形）
+                        local peak = iceNode:CreateChild("Peak")
+                        peak.position = Vector3(
+                            (math.random() - 0.5) * 0.4,
+                            wallH + 0.4,
+                            (math.random() - 0.5) * 0.2)
+                        peak.scale = Vector3(wallW * 0.6, 1.2, wallD * 0.6)
+                        peak.rotation = Quaternion(math.random() * 15 - 7, Vector3.UP)
+                        local pm = peak:CreateComponent("StaticModel")
+                        pm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+                        pm:SetMaterial(iceMat)
+                        pm.castShadows = true
+
+                        -- 侧面冰块凸起（2-3个）
+                        for j = 1, math.random(2, 3) do
+                            local chunk = iceNode:CreateChild("IceChunk")
+                            local cSide = (j % 2 == 0) and 1 or -1
+                            chunk.position = Vector3(
+                                cSide * (wallW * 0.35 + math.random() * 0.3),
+                                math.random() * wallH * 0.6 + 0.3,
+                                (math.random() - 0.5) * wallD * 0.5)
+                            local cs = 0.3 + math.random() * 0.4
+                            chunk.scale = Vector3(cs, cs * 1.5, cs)
+                            chunk.rotation = Quaternion(math.random() * 30 - 15, Vector3.UP)
+                            local cm = chunk:CreateComponent("StaticModel")
+                            cm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                            cm:SetMaterial(iceDarkMat)
+                            cm.castShadows = true
+                        end
+
+                        table.insert(State.obstacles, {
+                            node = iceNode, z = zPos, obsType = Config.OBS_ICEBERG,
+                            lane = sl, biome = 2, damage = 1
+                        })
+                    else
+                        -- === 冰刺（巨型醒目版）===
+                        local spikeNode = State.scene:CreateChild("IceSpike")
+                        spikeNode.position = Vector3(laneX, 0, zPos)
+
+                        -- 发光冰刺材质（强 emissive 让它巨显眼）
+                        local spikeGlowMat = Config.CreatePBRMaterial(
+                            Color(0.5, 0.85, 1.0, 1.0), 0.45, 0.08)
+                        spikeGlowMat:SetShaderParameter("MatEmissiveColor",
+                            Variant(Color(0.15, 0.35, 0.55)))
+                        local spikeDarkGlowMat = Config.CreatePBRMaterial(
+                            Color(0.3, 0.6, 0.85, 1.0), 0.50, 0.10)
+                        spikeDarkGlowMat:SetShaderParameter("MatEmissiveColor",
+                            Variant(Color(0.08, 0.20, 0.40)))
+
+                        -- 中央主刺（最高最粗）
+                        local mainSpike = spikeNode:CreateChild("MainSpike")
+                        local mainH = 1.6 + math.random() * 0.4  -- 1.6~2.0m
+                        mainSpike.position = Vector3(0, 0, 0)
+                        mainSpike.scale = Vector3(0.5, mainH, 0.5)
+                        local msm = mainSpike:CreateComponent("StaticModel")
+                        msm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+                        msm:SetMaterial(spikeGlowMat)
+                        msm.castShadows = true
+
+                        -- 周围 5~7 根副刺（大小各异，围绕主刺）
+                        local spikeCount = math.random(5, 7)
+                        for j = 1, spikeCount do
+                            local spike = spikeNode:CreateChild("Spike")
+                            local sH = 0.8 + math.random() * 0.8  -- 0.8~1.6m
+                            local sR = 0.2 + math.random() * 0.15
+                            local angle = (j / spikeCount) * math.pi * 2 + math.random() * 0.5
+                            local dist = 0.35 + math.random() * 0.35
+                            spike.position = Vector3(
+                                math.cos(angle) * dist,
+                                0,
+                                math.sin(angle) * dist * 0.6)
+                            spike.scale = Vector3(sR * 2, sH, sR * 2)
+                            -- 略微向外倾斜，更有攻击性
+                            local tiltX = math.cos(angle) * 12
+                            local tiltZ = math.sin(angle) * 12
+                            spike.rotation = Quaternion(tiltZ, 0, -tiltX)
+                            local sm = spike:CreateComponent("StaticModel")
+                            sm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
+                            sm:SetMaterial((j % 2 == 0) and spikeDarkGlowMat or spikeGlowMat)
+                            sm.castShadows = true
+                        end
+
+                        table.insert(State.obstacles, {
+                            node = spikeNode, z = zPos, obsType = Config.OBS_LOW_BAR,
+                            lane = sl, biome = 2, damage = 2
+                        })
+                    end
+                end
+            end
+            return  -- 已处理，不走通用栏板逻辑
+        end
+
         local solidCount = #solidLanes
         local barOffsetX = 0
         local barWidthRatio = 0.8

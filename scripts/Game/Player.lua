@@ -559,7 +559,14 @@ function Player.CheckCollision(obs)
             return true
         end
     elseif obs.obsType == Config.OBS_LOW_BAR then
-        -- 2轨道时，玩家在空轨道可躲避
+        -- 单轨道冰刺（biome 2）：先检查是否在同一轨道
+        if obs.biome == 2 then
+            if math.abs(playerX - obs.lane * Config.LANE_WIDTH) < 1.0 and playerY < 0.8 then
+                return true
+            end
+            return false
+        end
+        -- 跨轨道横杆：在空轨道可躲避
         if obs.openLane and math.abs(playerX - obs.openLane * Config.LANE_WIDTH) < Config.LANE_WIDTH * 0.6 then
             return false
         end
@@ -578,6 +585,11 @@ function Player.CheckCollision(obs)
             return false
         end
         if not State.isSliding then
+            return true
+        end
+    elseif obs.obsType == Config.OBS_ICEBERG then
+        -- 冰山墙：单轨道阻挡，无法跳跃或滑铲通过，只能换轨道
+        if math.abs(playerX - obs.lane * Config.LANE_WIDTH) < 1.0 then
             return true
         end
     end

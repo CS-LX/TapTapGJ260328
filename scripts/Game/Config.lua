@@ -15,6 +15,7 @@ Config.OBS_BLOCK    = 1   -- 路障：需要左右躲避（1颗心）
 Config.OBS_LOW_BAR  = 2   -- 低横杆：需要跳跃（2颗心）
 Config.OBS_HIGH_BAR = 3   -- 高横杆：需要下蹲或跳跃（3颗心）
 Config.OBS_OVERHEAD = 4   -- 低天花板：只能下蹲（2颗心）
+Config.OBS_ICEBERG  = 5   -- 冰山墙：只能换轨道（1颗心）
 
 -- 游戏配置
 Config.LANE_WIDTH       = 2.5          -- 跑道间距（米）

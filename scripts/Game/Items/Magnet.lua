@@ -99,7 +99,7 @@ function Magnet.Update(dt)
         despawnDist = Config.DESPAWN_DISTANCE,
     }, {
         onCollect = function(item)
-            SFX.Play("bell.ogg", 0.8)
+            SFX.Play("mag.ogg", 0.8)
             Magnet.active = true
             Magnet.timer = Magnet.DURATION
             local p = item.node.position
