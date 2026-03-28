@@ -47,7 +47,22 @@ function ItemBase.CreateNode(scene, pos, config)
 end
 
 -- ============================================================================
--- 更新道具列表（浮动、收集动画、碰撞检测、回收）
+-- 批量触发道具自主失效（dissolve 消失动画）
+-- ============================================================================
+
+--- 让列表中所有未收集、未失效的道具进入 dissolve 状态
+function ItemBase.DissolveAll(items)
+    for _, item in ipairs(items) do
+        if item.node and not item.collected and not item.collecting and not item.dissolving then
+            item.dissolving = true
+            item.dissolveTimer = 0
+            item.dissolveOriginY = item.node.position.y
+        end
+    end
+end
+
+-- ============================================================================
+-- 更新道具列表（浮动、收集动画、失效动画、碰撞检测、回收）
 -- ============================================================================
 
 ---@param items table[] 道具列表
@@ -87,6 +102,40 @@ function ItemBase.UpdateList(items, dt, playerX, playerZ, config, callbacks)
                         local bb = bbSet:GetBillboard(0)
                         bb.size = Vector2(s, s)
                         bbSet:Commit()
+                    end
+                end
+            elseif item.dissolving then
+                -- === 失效消散动画 ===
+                item.dissolveTimer = item.dissolveTimer + dt
+                local duration = 0.6
+                local t = item.dissolveTimer / duration  -- 0→1
+
+                if t >= 1.0 then
+                    item.collected = true
+                    item.node:Remove()
+                    item.node = nil
+                else
+                    -- 向上飘 + 缩小
+                    local pos = item.node.position
+                    pos.y = item.dissolveOriginY + t * 2.0
+                    item.node.position = pos
+
+                    local s = config.size * (1.0 - t * 0.8)
+                    if s < 0.05 then s = 0.05 end
+                    local bbSet = item.node:GetComponent("BillboardSet")
+                    if bbSet then
+                        local bb = bbSet:GetBillboard(0)
+                        bb.size = Vector2(s, s)
+                        bbSet:Commit()
+                    end
+
+                    -- 光源渐暗
+                    local lightNode = item.node:GetChild("ItemLight")
+                    if lightNode then
+                        local light = lightNode:GetComponent("Light")
+                        if light then
+                            light.brightness = 1.5 * (1.0 - t)
+                        end
                     end
                 end
             else

@@ -77,6 +77,10 @@ function Heart.Update(dt)
                 text     = "+❤️",
                 color    = { 255, 80, 80 },
             })
+            -- 满血后让场上剩余心心消散
+            if State.health >= Config.MAX_HEALTH then
+                ItemBase.DissolveAll(Heart.nodes)
+            end
         end,
     })
 end

@@ -101,6 +101,8 @@ function Magnet.Update(dt)
                 text     = "🧲磁铁!",
                 color    = { 80, 160, 255 },
             })
+            -- 激活后让场上剩余磁铁消散
+            ItemBase.DissolveAll(Magnet.nodes)
         end,
     })
 end
