@@ -24,7 +24,7 @@ Config.TRACK_LENGTH     = 200.0        -- 每段地面长度
 Config.TRACK_WIDTH      = 10.0         -- 地面宽度
 
 Config.START_SPEED      = 12.0         -- 初始速度（米/秒）
-Config.MAX_SPEED        = 150.0        -- 最大速度
+Config.MAX_SPEED        = 180.0        -- 最大速度
 Config.SPEED_INCREASE   = 0.3          -- 每秒加速
 Config.LANE_SWITCH_SPEED = 12.0        -- 切换跑道速度
 Config.JUMP_VELOCITY    = 10.0         -- 跳跃初速度
