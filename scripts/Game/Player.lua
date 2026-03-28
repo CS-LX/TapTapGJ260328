@@ -263,15 +263,14 @@ function Player.Update(dt)
                 State.currentLane = 0
                 State.targetLaneX = 0
                 -- ======== 场景切换时刻：清除旧场景装饰物 ========
-                -- 清除障碍物
+                -- 清除障碍物（避免飞跃中碰撞）
                 for _, obs in ipairs(State.obstacles) do
                     if obs.node then obs.node:Remove() end
                     if obs.extraNode then obs.extraNode:Remove() end
                 end
                 State.obstacles = {}
-                -- 清除侧边装饰
-                Scenery.ClearAll()
-                print("[Canyon] Scene switch: cleared obstacles and scenery")
+                -- 注意：不清除侧边装饰，让旧装饰自然滚动消失，保持视觉连续性
+                print("[Canyon] Scene switch: cleared obstacles")
 
                 -- 飞跃沟壑时推进 BGM 阶段
                 local newStage = 4 - math.min(State.biomeChangeCount, 3)
