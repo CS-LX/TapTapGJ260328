@@ -732,9 +732,15 @@ end
 -- ============================================================================
 
 function World.UpdateScore(dt)
-    if State.runSpeed < Config.MAX_SPEED then
+    -- 速度上限：正常 180，大运 360
+    local maxSpeed = Config.MAX_SPEED
+    if State.isDayunActive then
+        maxSpeed = Config.MAX_SPEED * Config.DAYUN_SPEED_MULTIPLIER
+    end
+    if State.runSpeed < maxSpeed then
         State.runSpeed = State.runSpeed + Config.SPEED_INCREASE * dt
     end
+    State.runSpeed = math.min(State.runSpeed, maxSpeed)
     State.score = math.floor(State.distanceTraveled) + State.coins * 50
 end
 
