@@ -12,18 +12,10 @@ local World       = require "Game.World"
 local Camera      = require "Game.Camera"
 local GameUI      = require "Game.UI"
 local ItemManager = require "Game.Items.ItemManager"
-local MidiPlayer  = require "midi.MidiPlayer"
-local AudioDiag   = require "midi.AudioDiag"
 
 -- 加载道具模块（触发自动注册）
 require "Game.Items.Heart"
 require "Game.Items.Magnet"
-
--- BGM 播放器实例
-local bgmPlayer = nil
--- 诊断模式: true 时只运行诊断工具, 不播放 BGM
-local DIAG_MODE = false
-local diagTool = nil
 
 -- ============================================================================
 -- 入口函数
@@ -48,44 +40,6 @@ function Start()
     Player.Create()
     World.CreateInitialGround()
 
-    if DIAG_MODE then
-        -- 诊断模式: 只启动音频诊断工具
-        diagTool = AudioDiag.new(State.scene)
-        print("=== DIAG MODE: Press 1-9 to run tests, 0 to reset ===")
-    else
-        -- 正常模式: 初始化 BGM 播放器
-        bgmPlayer = MidiPlayer.new(State.scene, {
-            volume = 0.7,
-            loop = true,
-            maxPolyphony = 32,
-        })
-        local ok, err = bgmPlayer:load("audio/BGM.midi.txt")
-        if ok then
-            bgmPlayer:setTracks({4})  -- 初始只播放第4轨道
-            bgmPlayer:play()
-            print("BGM: MIDI loaded, duration=" .. string.format("%.1f", bgmPlayer:getDuration()) .. "s")
-        else
-            print("BGM: Failed to load MIDI - " .. tostring(err))
-        end
-
-        -- 场景切换时递增音轨：第1次切换加第2轨，第2次加第3轨，第3次加第4轨
-        State.onBiomeChange = function(count)
-            if bgmPlayer and count <= 3 then
-                local track = 4 - count  -- count=1→track3, count=2→track2, count=3→track1
-                bgmPlayer:enableTrack(track)
-                print("BGM: Biome #" .. count .. " → enabled track " .. track)
-            end
-        end
-
-        -- 重新开始时重置为只播放第4轨道
-        State.onGameReset = function()
-            if bgmPlayer then
-                bgmPlayer:setTracks({4})
-                print("BGM: Reset to track 4")
-            end
-        end
-    end
-
     -- 订阅事件
     SubscribeToEvent("Update", "HandleUpdate")
     SubscribeToEvent(State.nvgCtx, "NanoVGRender", "HandleNanoVGRender")
@@ -97,14 +51,6 @@ function Start()
 end
 
 function Stop()
-    if diagTool then
-        diagTool:destroy()
-        diagTool = nil
-    end
-    if bgmPlayer then
-        bgmPlayer:destroy()
-        bgmPlayer = nil
-    end
     if State.nvgCtx ~= nil then
         nvgDelete(State.nvgCtx)
         State.nvgCtx = nil
@@ -119,17 +65,6 @@ end
 ---@param eventData UpdateEventData
 function HandleUpdate(eventType, eventData)
     local dt = eventData["TimeStep"]:GetFloat()
-
-    -- 诊断模式: 只运行诊断工具
-    if diagTool then
-        diagTool:update(dt)
-        return  -- 跳过游戏逻辑
-    end
-
-    -- BGM 每帧驱动
-    if bgmPlayer then
-        bgmPlayer:update(dt)
-    end
 
     if State.gameState == Config.STATE_MENU then
         Player.HandleMenuInput(dt)
