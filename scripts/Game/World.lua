@@ -10,6 +10,7 @@ local Canyon    = require "Game.World.Canyon"
 local Holes     = require "Game.World.Holes"
 local JumpPad   = require "Game.World.JumpPad"
 local Scenery   = require "Game.World.Scenery"
+local Obstacles = require "Game.World.Obstacles"
 
 local World = {}
 
@@ -184,164 +185,6 @@ end
 -- ============================================================================
 
 --- 给障碍物节点添加场景风格化装饰（子节点，自动随父节点删除）
--- ============================================================================
--- Billboard 贴图障碍物（场景1大蓝象、场景2企鹅）
--- ============================================================================
-local blockTexCache = {}  -- 贴图材质缓存
-
-local function CreateBillboardBlock(parentNode, vis, height)
-    height = height or 2.5
-    local aspect = vis.blockTextureAspect or 1.0
-    local width  = height * aspect
-
-    local bbSet = parentNode:CreateComponent("BillboardSet")
-    bbSet.numBillboards = 1
-    bbSet.sorted = true
-    bbSet.faceCameraMode = FC_ROTATE_Y
-    bbSet.castShadows = true
-
-    -- 使用受光照材质（DiffAlpha）以支持投射阴影，提高亮度补偿光照衰减
-    local texPath = vis.blockTexture
-    if not blockTexCache[texPath] then
-        local mat = Material:new()
-        mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
-        mat:SetTexture(0, cache:GetResource("Texture2D", texPath))
-        mat:SetShaderParameter("MatDiffColor", Variant(Color(2.5, 2.5, 2.5, 1.0)))
-        blockTexCache[texPath] = mat
-    end
-    bbSet:SetMaterial(blockTexCache[texPath])
-
-    -- bb.size 是半尺寸
-    local bb = bbSet:GetBillboard(0)
-    bb.position = Vector3(0, 0, 0)
-    bb.size = Vector2(width * 0.5, height * 0.5)
-    bb.enabled = true
-    bbSet:Commit()
-end
-
-local function DecorateBlock(node, biomeIdx, vis)
-    local psx, psy, psz = node.scale.x, node.scale.y, node.scale.z
-
-    if biomeIdx == 1 then
-        -- Savanna: 木板顶盖 + 侧面条纹
-        local plank = node:CreateChild("Decor")
-        plank.position = Vector3(0, 0.5, 0)
-        plank.scale = Vector3(1.05, 0.06 / psy, 1.05)
-        local pm = plank:CreateComponent("StaticModel")
-        pm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        pm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
-        pm.castShadows = true
-        -- 侧面横条纹
-        for i = -1, 1, 2 do
-            local stripe = node:CreateChild("Decor")
-            stripe.position = Vector3(0, i * 0.15, 0.5)
-            stripe.scale = Vector3(1.02, 0.08 / psy, 0.02 / psz)
-            local sm = stripe:CreateComponent("StaticModel")
-            sm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            sm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
-            sm.castShadows = false
-        end
-
-    elseif biomeIdx == 2 then
-        -- Glacier: 冰锥尖角 + 顶部碎冰
-        local shard = node:CreateChild("Decor")
-        shard.position = Vector3(0.15, 0.5, 0.05)
-        shard.rotation = Quaternion(0, 25, 12)
-        shard.scale = Vector3(0.25 / psx, 0.5 / psy, 0.25 / psz)
-        local shm = shard:CreateComponent("StaticModel")
-        shm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-        shm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
-        shm.castShadows = true
-        -- 另一侧小冰锥
-        local shard2 = node:CreateChild("Decor")
-        shard2.position = Vector3(-0.2, 0.5, -0.1)
-        shard2.rotation = Quaternion(0, -40, -8)
-        shard2.scale = Vector3(0.18 / psx, 0.35 / psy, 0.18 / psz)
-        local shm2 = shard2:CreateComponent("StaticModel")
-        shm2:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-        shm2:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
-        shm2.castShadows = true
-
-    elseif biomeIdx == 3 then
-        -- Cliffs: 苔藓覆盖顶面 + 小石块
-        local moss = node:CreateChild("Decor")
-        moss.position = Vector3(0, 0.5, 0)
-        moss.scale = Vector3(1.02, 0.05 / psy, 1.02)
-        local mm = moss:CreateComponent("StaticModel")
-        mm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        mm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc))
-        mm.castShadows = false
-        -- 小碎石
-        local pebble = node:CreateChild("Decor")
-        pebble.position = Vector3(0.3, 0.5, 0.2)
-        pebble.rotation = Quaternion(15, 40, 0)
-        pebble.scale = Vector3(0.15 / psx, 0.10 / psy, 0.12 / psz)
-        local pbm = pebble:CreateComponent("StaticModel")
-        pbm:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
-        pbm:SetMaterial(Config.CreatePBRMaterial(Color(0.48, 0.42, 0.35, 1.0), 0.0, 0.9))
-        pbm.castShadows = false
-    end
-end
-
---- 给 overhead/高栏添加场景装饰
-local function DecorateOverhead(node, biomeIdx, vis)
-    local psx, psy, psz = node.scale.x, node.scale.y, node.scale.z
-
-    if biomeIdx == 1 then
-        -- Savanna: 底部草帘（前后各一排细条）
-        for zSide = -1, 1, 2 do
-            for j = 1, 3 do
-                local straw = node:CreateChild("Decor")
-                local xOff = (j - 2) * 0.25
-                straw.position = Vector3(xOff, -0.5, zSide * 0.5)
-                straw.scale = Vector3(0.06 / psx, 0.15 / psy, 0.02 / psz)
-                local sm = straw:CreateComponent("StaticModel")
-                sm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                sm:SetMaterial(Config.CreateObsMaterial(vis.blockAcc or vis.overhead))
-                sm.castShadows = false
-            end
-        end
-
-    elseif biomeIdx == 2 then
-        -- Glacier: 底部悬挂冰锥
-        for j = 1, 4 do
-            local icicle = node:CreateChild("Decor")
-            local xOff = (j - 2.5) * 0.22
-            icicle.position = Vector3(xOff, -0.5, (math.random() - 0.5) * 0.6)
-            icicle.rotation = Quaternion(180, 0, math.random() * 10 - 5)
-            local iciH = 0.15 + math.random() * 0.20
-            icicle.scale = Vector3(0.05 / psx, iciH / psy, 0.05 / psz)
-            local im = icicle:CreateComponent("StaticModel")
-            im:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-            im:SetMaterial(Config.CreateObsMaterial(vis.blockAcc or {
-                color = Color(0.65, 0.82, 0.95, 1.0), m = 0.35, r = 0.10,
-                emissive = Color(0.06, 0.15, 0.30)
-            }))
-            im.castShadows = false
-        end
-
-    elseif biomeIdx == 3 then
-        -- Cliffs: 顶部草皮 + 侧面藤蔓
-        local grass = node:CreateChild("Decor")
-        grass.position = Vector3(0, 0.5, 0)
-        grass.scale = Vector3(1.02, 0.04 / psy, 1.02)
-        local gm = grass:CreateComponent("StaticModel")
-        gm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        gm:SetMaterial(Config.CreatePBRMaterial(Color(0.30, 0.52, 0.22, 1.0), 0.0, 0.85))
-        gm.castShadows = false
-        -- 侧面垂挂藤蔓
-        for side = -1, 1, 2 do
-            local vine = node:CreateChild("Decor")
-            vine.position = Vector3(side * 0.48, -0.1, 0)
-            vine.scale = Vector3(0.03 / psx, 0.4 / psy, 0.15 / psz)
-            local vm = vine:CreateComponent("StaticModel")
-            vm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-            vm:SetMaterial(Config.CreatePBRMaterial(Color(0.20, 0.42, 0.15, 1.0), 0.0, 0.88))
-            vm.castShadows = false
-        end
-    end
-end
-
 function World.SpawnObstacle(zPos)
     -- OBS_BLOCK（贴图障碍）概率提高：40% block, 20% low, 20% high, 20% overhead
     local roll = math.random(1, 10)
@@ -375,7 +218,7 @@ function World.SpawnObstacle(zPos)
             -- Billboard 贴图障碍（大蓝象 / 企鹅）
             local bbH = 2.5
             node.position = Vector3(lane * Config.LANE_WIDTH, bbH * 0.5, zPos)
-            CreateBillboardBlock(node, vis, bbH)
+            Obstacles.CreateBillboardBlock(node, vis, bbH)
         else
             -- 传统 Box 模型障碍
             node.position = Vector3(lane * Config.LANE_WIDTH, 0.6, zPos)
@@ -384,7 +227,7 @@ function World.SpawnObstacle(zPos)
             model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
             model:SetMaterial(Config.CreateObsMaterial(vis.block))
             model.castShadows = true
-            DecorateBlock(node, State.biomeIndex, vis)
+            Obstacles.DecorateBlock(node, State.biomeIndex, vis)
         end
 
         if math.random() > 0.6 and #solidLanes >= 2 then
@@ -401,7 +244,7 @@ function World.SpawnObstacle(zPos)
                 if useBillboard then
                     local bbH = 2.5
                     node2.position = Vector3(lane2 * Config.LANE_WIDTH, bbH * 0.5, zPos)
-                    CreateBillboardBlock(node2, vis, bbH)
+                    Obstacles.CreateBillboardBlock(node2, vis, bbH)
                 else
                     node2.position = Vector3(lane2 * Config.LANE_WIDTH, 0.6, zPos)
                     node2.scale = Vector3(1.8, 1.2, 0.8)
@@ -409,7 +252,7 @@ function World.SpawnObstacle(zPos)
                     model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
                     model2:SetMaterial(Config.CreateObsMaterial(vis.block))
                     model2.castShadows = true
-                    DecorateBlock(node2, State.biomeIndex, vis)
+                    Obstacles.DecorateBlock(node2, State.biomeIndex, vis)
                 end
 
                 obs.extraNode = node2
@@ -427,7 +270,6 @@ function World.SpawnObstacle(zPos)
         if State.biomeIndex == 2 then
             node:Remove()  -- 移除预创建的节点，改为按轨道生成
 
-            -- 保证至少留一条轨道空出
             local openIdx = math.random(1, #solidLanes)
             local iceMat = Config.CreatePBRMaterial(
                 Color(0.65, 0.85, 0.95, 1.0), 0.35, 0.10)
@@ -437,117 +279,18 @@ function World.SpawnObstacle(zPos)
             for i, sl in ipairs(solidLanes) do
                 if i ~= openIdx then
                     local laneX = sl * Config.LANE_WIDTH
-                    -- LOW_BAR 偏向冰刺，HIGH_BAR/OVERHEAD 偏向冰山
                     local icebergChance = (obsType == Config.OBS_LOW_BAR) and 0.3 or 0.6
-                    local isIceberg = math.random() < icebergChance
 
-                    if isIceberg then
-                        -- === 冰山墙 ===
-                        local iceNode = State.scene:CreateChild("Iceberg")
-                        iceNode.position = Vector3(laneX, 0, zPos)
-
-                        -- 主体：高大冰块
-                        local wallH = 3.0 + math.random() * 1.0
-                        local wallW = 1.8
-                        local wallD = 0.8 + math.random() * 0.4
-                        local mainWall = iceNode:CreateChild("IceWall")
-                        mainWall.position = Vector3(0, wallH * 0.5, 0)
-                        mainWall.scale = Vector3(wallW, wallH, wallD)
-                        local wm = mainWall:CreateComponent("StaticModel")
-                        wm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                        wm:SetMaterial(iceMat)
-                        wm.castShadows = true
-
-                        -- 顶部尖角（不规则锥形）
-                        local peak = iceNode:CreateChild("Peak")
-                        peak.position = Vector3(
-                            (math.random() - 0.5) * 0.4,
-                            wallH + 0.4,
-                            (math.random() - 0.5) * 0.2)
-                        peak.scale = Vector3(wallW * 0.6, 1.2, wallD * 0.6)
-                        peak.rotation = Quaternion(math.random() * 15 - 7, Vector3.UP)
-                        local pm = peak:CreateComponent("StaticModel")
-                        pm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                        pm:SetMaterial(iceMat)
-                        pm.castShadows = true
-
-                        -- 侧面冰块凸起（2-3个）
-                        for j = 1, math.random(2, 3) do
-                            local chunk = iceNode:CreateChild("IceChunk")
-                            local cSide = (j % 2 == 0) and 1 or -1
-                            chunk.position = Vector3(
-                                cSide * (wallW * 0.35 + math.random() * 0.3),
-                                math.random() * wallH * 0.6 + 0.3,
-                                (math.random() - 0.5) * wallD * 0.5)
-                            local cs = 0.3 + math.random() * 0.4
-                            chunk.scale = Vector3(cs, cs * 1.5, cs)
-                            chunk.rotation = Quaternion(math.random() * 30 - 15, Vector3.UP)
-                            local cm = chunk:CreateComponent("StaticModel")
-                            cm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                            cm:SetMaterial(iceDarkMat)
-                            cm.castShadows = true
-                        end
-
-                        table.insert(State.obstacles, {
-                            node = iceNode, z = zPos, obsType = Config.OBS_ICEBERG,
-                            lane = sl, biome = 2, damage = 1
-                        })
+                    if math.random() < icebergChance then
+                        table.insert(State.obstacles,
+                            Obstacles.BuildIceberg(laneX, zPos, iceMat, iceDarkMat, sl))
                     else
-                        -- === 冰刺（巨型醒目版）===
-                        local spikeNode = State.scene:CreateChild("IceSpike")
-                        spikeNode.position = Vector3(laneX, 0, zPos)
-
-                        -- 发光冰刺材质（强 emissive 让它巨显眼）
-                        local spikeGlowMat = Config.CreatePBRMaterial(
-                            Color(0.5, 0.85, 1.0, 1.0), 0.45, 0.08)
-                        spikeGlowMat:SetShaderParameter("MatEmissiveColor",
-                            Variant(Color(0.15, 0.35, 0.55)))
-                        local spikeDarkGlowMat = Config.CreatePBRMaterial(
-                            Color(0.3, 0.6, 0.85, 1.0), 0.50, 0.10)
-                        spikeDarkGlowMat:SetShaderParameter("MatEmissiveColor",
-                            Variant(Color(0.08, 0.20, 0.40)))
-
-                        -- 中央主刺（最高最粗）
-                        local mainSpike = spikeNode:CreateChild("MainSpike")
-                        local mainH = 1.6 + math.random() * 0.4  -- 1.6~2.0m
-                        mainSpike.position = Vector3(0, 0, 0)
-                        mainSpike.scale = Vector3(0.5, mainH, 0.5)
-                        local msm = mainSpike:CreateComponent("StaticModel")
-                        msm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                        msm:SetMaterial(spikeGlowMat)
-                        msm.castShadows = true
-
-                        -- 周围 5~7 根副刺（大小各异，围绕主刺）
-                        local spikeCount = math.random(5, 7)
-                        for j = 1, spikeCount do
-                            local spike = spikeNode:CreateChild("Spike")
-                            local sH = 0.8 + math.random() * 0.8  -- 0.8~1.6m
-                            local sR = 0.2 + math.random() * 0.15
-                            local angle = (j / spikeCount) * math.pi * 2 + math.random() * 0.5
-                            local dist = 0.35 + math.random() * 0.35
-                            spike.position = Vector3(
-                                math.cos(angle) * dist,
-                                0,
-                                math.sin(angle) * dist * 0.6)
-                            spike.scale = Vector3(sR * 2, sH, sR * 2)
-                            -- 略微向外倾斜，更有攻击性
-                            local tiltX = math.cos(angle) * 12
-                            local tiltZ = math.sin(angle) * 12
-                            spike.rotation = Quaternion(tiltZ, 0, -tiltX)
-                            local sm = spike:CreateComponent("StaticModel")
-                            sm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                            sm:SetMaterial((j % 2 == 0) and spikeDarkGlowMat or spikeGlowMat)
-                            sm.castShadows = true
-                        end
-
-                        table.insert(State.obstacles, {
-                            node = spikeNode, z = zPos, obsType = Config.OBS_LOW_BAR,
-                            lane = sl, biome = 2, damage = 2
-                        })
+                        table.insert(State.obstacles,
+                            Obstacles.BuildIceSpike(laneX, zPos, sl))
                     end
                 end
             end
-            return  -- 已处理，不走通用栏板逻辑
+            return
         end
 
         local solidCount = #solidLanes
@@ -584,181 +327,11 @@ function World.SpawnObstacle(zPos)
             obs.damage = 2
 
             if State.biomeIndex == 1 then
-                -- Savanna: Lowpoly 土堆（尺寸跟随障碍宽度动态变化）
-                local moundW = Config.TRACK_WIDTH * barWidthRatio  -- 障碍实际宽度
-                local moundBase = moundW * 0.9                    -- 主锥体底部直径
-                local moundH = 0.8 + moundW * 0.12                -- 高度随宽度增长
-                local moundD = math.max(1.5, moundW * 0.5)        -- 纵深
-                node.position = Vector3(barOffsetX, 0.0, zPos)
-
-                -- 主体大土丘（扁锥形）
-                local mainMound = node:CreateChild("MainMound")
-                mainMound.position = Vector3(0, 0, 0)
-                mainMound.scale = Vector3(moundBase, moundH, moundD)
-                local mm = mainMound:CreateComponent("StaticModel")
-                mm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                mm:SetMaterial(Config.CreatePBRMaterial(
-                    Color(0.62, 0.42, 0.22, 1.0), 0.0, 0.92))
-                mm.castShadows = true
-
-                -- 侧面小土丘（数量和大小也随宽度增加）
-                local bumpCount = barWidthRatio > 0.5 and 4 or 2
-                for j = 1, bumpCount do
-                    local bump = node:CreateChild("Bump")
-                    local bAngle = (j / bumpCount) * math.pi * 2 + math.random() * 0.8
-                    local bDist = moundBase * 0.35 + math.random() * moundBase * 0.15
-                    bump.position = Vector3(
-                        math.cos(bAngle) * bDist,
-                        0,
-                        math.sin(bAngle) * bDist * 0.6
-                    )
-                    local bScale = moundBase * (0.3 + math.random() * 0.2)
-                    bump.scale = Vector3(bScale, moundH * (0.5 + math.random() * 0.3), bScale * 0.7)
-                    bump.rotation = Quaternion(math.random() * 40 - 20, Vector3.UP)
-                    local bm = bump:CreateComponent("StaticModel")
-                    bm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                    bm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.58 + math.random() * 0.08, 0.38 + math.random() * 0.06, 0.18, 1.0), 0.0, 0.90))
-                    bm.castShadows = true
-                end
-
-                -- 顶部岩石点缀（数量随宽度增加）
-                local rockCount = barWidthRatio > 0.5 and 5 or 3
-                for j = 1, rockCount do
-                    local rock = node:CreateChild("Rock")
-                    local angle = (j / rockCount) * math.pi * 2 + math.random() * 0.5
-                    local dist = moundBase * 0.15 + math.random() * moundBase * 0.25
-                    rock.position = Vector3(math.cos(angle) * dist, moundH * 0.25 + math.random() * moundH * 0.4, math.sin(angle) * dist * 0.5)
-                    local rs = 0.15 + math.random() * 0.15
-                    rock.scale = Vector3(rs, rs * 0.8, rs)
-                    rock.rotation = Quaternion(math.random() * 360, Vector3.UP)
-                    local rm = rock:CreateComponent("StaticModel")
-                    rm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    rm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.50, 0.42, 0.34, 1.0), 0.1, 0.85))
-                    rm.castShadows = true
-                end
+                -- Savanna: Lowpoly 土堆
+                Obstacles.BuildSavannaMound(node, barOffsetX, zPos, barWidthRatio)
             elseif State.biomeIndex == 3 then
-                -- Cliffs: 宽→Lowpoly木栅栏  窄→石头堆
-                local barW = Config.TRACK_WIDTH * barWidthRatio
-                node.position = Vector3(barOffsetX, 0, zPos)
-
-                if barWidthRatio > 0.4 then
-                    -- === Lowpoly 木栅栏 ===
-                    local fenceH = 0.9
-                    local postCount = math.max(3, math.floor(barW / 0.8) + 1)
-                    local woodMat = Config.CreatePBRMaterial(
-                        Color(0.50, 0.35, 0.18, 1.0), 0.0, 0.85)
-                    local darkWoodMat = Config.CreatePBRMaterial(
-                        Color(0.38, 0.25, 0.12, 1.0), 0.0, 0.88)
-
-                    -- 竖立栅栏柱
-                    for j = 1, postCount do
-                        local px = (j - 1) / (postCount - 1) * barW - barW * 0.5
-                        local post = node:CreateChild("FencePost")
-                        local postH = fenceH + math.random() * 0.15
-                        post.position = Vector3(px, postH * 0.5, 0)
-                        post.scale = Vector3(0.12, postH, 0.12)
-                        post.rotation = Quaternion(0, math.random() * 8 - 4, math.random() * 3 - 1.5)
-                        local pm = post:CreateComponent("StaticModel")
-                        pm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                        pm:SetMaterial(woodMat)
-                        pm.castShadows = true
-
-                        -- 柱顶削尖（小锥体）
-                        local tip = post:CreateChild("Tip")
-                        tip.position = Vector3(0, 0.52, 0)
-                        tip.scale = Vector3(1.2, 0.2 / postH, 1.2)
-                        local tm = tip:CreateComponent("StaticModel")
-                        tm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                        tm:SetMaterial(darkWoodMat)
-                        tm.castShadows = false
-                    end
-
-                    -- 横梁（2根）
-                    for _, beamY in ipairs({ fenceH * 0.3, fenceH * 0.7 }) do
-                        local beam = node:CreateChild("FenceBeam")
-                        beam.position = Vector3(0, beamY, 0)
-                        beam.scale = Vector3(barW + 0.1, 0.08, 0.06)
-                        beam.rotation = Quaternion(0, 0, math.random() * 2 - 1)
-                        local bm = beam:CreateComponent("StaticModel")
-                        bm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                        bm:SetMaterial(darkWoodMat)
-                        bm.castShadows = true
-                    end
-
-                    -- 底部杂草点缀（2-3丛）
-                    for j = 1, math.random(2, 3) do
-                        local grass = node:CreateChild("Grass")
-                        grass.position = Vector3(
-                            (math.random() - 0.5) * barW * 0.7,
-                            0.08, (math.random() - 0.5) * 0.3)
-                        grass.scale = Vector3(0.2, 0.18, 0.08)
-                        grass.rotation = Quaternion(math.random() * 360, Vector3.UP)
-                        local gm = grass:CreateComponent("StaticModel")
-                        gm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                        gm:SetMaterial(Config.CreatePBRMaterial(
-                            Color(0.28, 0.45, 0.15, 1.0), 0.0, 0.92))
-                        gm.castShadows = false
-                    end
-                else
-                    -- === 石头堆 ===
-                    local rockMat = Config.CreatePBRMaterial(
-                        Color(0.52, 0.48, 0.42, 1.0), 0.05, 0.88)
-                    local mossMat = Config.CreatePBRMaterial(
-                        Color(0.35, 0.45, 0.28, 1.0), 0.0, 0.90)
-
-                    -- 底层大石头（2-3块）
-                    for j = 1, math.random(2, 3) do
-                        local rock = node:CreateChild("BigRock")
-                        local rs = 0.35 + math.random() * 0.25
-                        rock.position = Vector3(
-                            (math.random() - 0.5) * 0.8,
-                            rs * 0.4,
-                            (math.random() - 0.5) * 0.4)
-                        rock.scale = Vector3(rs * 1.3, rs * 0.9, rs)
-                        rock.rotation = Quaternion(
-                            math.random() * 30 - 15,
-                            math.random() * 360,
-                            math.random() * 15 - 7)
-                        local rm = rock:CreateComponent("StaticModel")
-                        rm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                        rm:SetMaterial(rockMat)
-                        rm.castShadows = true
-                    end
-
-                    -- 顶部尖石（2块，用Cone更有层次感）
-                    for j = 1, 2 do
-                        local peak = node:CreateChild("PeakRock")
-                        local pH = 0.4 + math.random() * 0.3
-                        peak.position = Vector3(
-                            (math.random() - 0.5) * 0.5,
-                            0.3 + math.random() * 0.15,
-                            (math.random() - 0.5) * 0.3)
-                        peak.scale = Vector3(0.25, pH, 0.25)
-                        peak.rotation = Quaternion(
-                            math.random() * 20 - 10, 0,
-                            math.random() * 20 - 10)
-                        local pm = peak:CreateComponent("StaticModel")
-                        pm:SetModel(cache:GetResource("Model", "Models/Cone.mdl"))
-                        pm:SetMaterial((j == 1) and rockMat or mossMat)
-                        pm.castShadows = true
-                    end
-
-                    -- 苔藓小球点缀
-                    for j = 1, math.random(2, 3) do
-                        local moss = node:CreateChild("Moss")
-                        moss.position = Vector3(
-                            (math.random() - 0.5) * 0.6,
-                            0.15 + math.random() * 0.2,
-                            (math.random() - 0.5) * 0.3)
-                        moss.scale = Vector3(0.12, 0.1, 0.12)
-                        local mm = moss:CreateComponent("StaticModel")
-                        mm:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
-                        mm:SetMaterial(mossMat)
-                        mm.castShadows = false
-                    end
-                end
+                -- Cliffs: 木栅栏 / 石头堆
+                Obstacles.BuildCliffsFence(node, barOffsetX, zPos, barWidthRatio)
             else
                 node.position = Vector3(barOffsetX, 0.4, zPos)
                 node.scale = Vector3(Config.TRACK_WIDTH * barWidthRatio, 0.8, 0.3)
@@ -772,153 +345,11 @@ function World.SpawnObstacle(zPos)
             obs.damage = 3
             local barW = Config.TRACK_WIDTH * barWidthRatio
 
-            if State.biomeIndex == 1 then
-                -- Savanna: 滚木（横躺原木，横向滚动+弹跳）
-                local logRadius = 0.45  -- 原木半径
-                local logLen = barW     -- 原木长度=横跨赛道宽度
-                node.position = Vector3(barOffsetX, logRadius + 0.1, zPos)
-
-                -- 原木主体容器（子节点方便整体旋转）
-                local logBody = node:CreateChild("LogBody")
-                logBody.rotation = Quaternion(0, 0, 90)  -- 横躺：Y轴→X轴
-
-                -- 主干（深色树皮）
-                local trunk = logBody:CreateChild("Trunk")
-                trunk.scale = Vector3(logRadius * 2, logLen, logRadius * 2)
-                local tm = trunk:CreateComponent("StaticModel")
-                tm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                tm:SetMaterial(Config.CreatePBRMaterial(
-                    Color(0.45, 0.28, 0.12, 1.0), 0.0, 0.88))
-                tm.castShadows = true
-
-                -- 树皮凸起条纹（Lowpoly 风格，沿长度方向的棱）
-                for j = 1, 5 do
-                    local angle = (j / 5) * math.pi * 2
-                    local bark = logBody:CreateChild("Bark")
-                    local bx = math.cos(angle) * logRadius * 0.85
-                    local bz = math.sin(angle) * logRadius * 0.85
-                    bark.position = Vector3(bx, 0, bz)
-                    bark.scale = Vector3(0.12, logLen * 0.9, 0.08)
-                    local bm = bark:CreateComponent("StaticModel")
-                    bm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    bm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.38, 0.22, 0.08, 1.0), 0.0, 0.92))
-                    bm.castShadows = false
-                end
-
-                -- 两端年轮截面（浅色圆盘）
-                for side = -1, 1, 2 do
-                    local cap = logBody:CreateChild("Cap")
-                    cap.position = Vector3(0, side * logLen * 0.5, 0)
-                    cap.scale = Vector3(logRadius * 1.8, 0.05, logRadius * 1.8)
-                    local cm = cap:CreateComponent("StaticModel")
-                    cm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                    cm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.72, 0.55, 0.32, 1.0), 0.0, 0.85))
-                    cm.castShadows = false
-                end
-
-                -- 被砍掉的树枝窦子（径向突出的短圆柱，让滚动清晰可见）
-                local stumpData = {
-                    { angle = 0.4,   yOff = -0.3 },
-                    { angle = 1.8,   yOff =  0.2 },
-                    { angle = 3.5,   yOff = -0.1 },
-                    { angle = 4.9,   yOff =  0.35 },
-                    { angle = 2.2,   yOff = -0.4 },
-                }
-                for _, sd in ipairs(stumpData) do
-                    local stump = logBody:CreateChild("Stump")
-                    local sx = math.cos(sd.angle) * logRadius * 0.9
-                    local sz = math.sin(sd.angle) * logRadius * 0.9
-                    stump.position = Vector3(sx, sd.yOff * logLen, sz)
-                    -- 树枝窦子朝径向外伸出
-                    local outX = math.cos(sd.angle)
-                    local outZ = math.sin(sd.angle)
-                    stump.rotation = Quaternion(0, 0, -math.deg(sd.angle) + 90)
-                    stump.scale = Vector3(0.12, 0.25, 0.12)  -- 短粗圆柱
-                    local sm = stump:CreateComponent("StaticModel")
-                    sm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                    sm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.52, 0.32, 0.14, 1.0), 0.0, 0.88))
-                    sm.castShadows = false
-                end
-
-                -- 标记为滚木，用于弹跳+滚动动画
+            if State.biomeIndex == 1 or State.biomeIndex == 3 then
+                -- Savanna / Cliffs: 滚木
                 obs.isRollingLog = true
-                obs.logBaseY = logRadius + 0.1
+                obs.logBaseY = Obstacles.BuildRollingLog(node, barOffsetX, zPos, barW, State.biomeIndex)
                 obs.logPhase = math.random() * math.pi * 2
-                obs.logSpin = 0  -- 累计滚动角度
-            elseif State.biomeIndex == 3 then
-                -- Cliffs: 滚木（复用场景1，苔藓色调）
-                local logRadius = 0.45
-                local logLen = barW
-                node.position = Vector3(barOffsetX, logRadius + 0.1, zPos)
-
-                local logBody = node:CreateChild("LogBody")
-                logBody.rotation = Quaternion(0, 0, 90)
-
-                -- 苔藓覆盖的主干（偏绿暗色树皮）
-                local trunk = logBody:CreateChild("Trunk")
-                trunk.scale = Vector3(logRadius * 2, logLen, logRadius * 2)
-                local tm = trunk:CreateComponent("StaticModel")
-                tm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                tm:SetMaterial(Config.CreatePBRMaterial(
-                    Color(0.35, 0.30, 0.15, 1.0), 0.0, 0.85))
-                tm.castShadows = true
-
-                -- 苔藓条纹
-                for j = 1, 5 do
-                    local angle = (j / 5) * math.pi * 2
-                    local bark = logBody:CreateChild("Bark")
-                    bark.position = Vector3(
-                        math.cos(angle) * logRadius * 0.85,
-                        0,
-                        math.sin(angle) * logRadius * 0.85)
-                    bark.scale = Vector3(0.12, logLen * 0.9, 0.08)
-                    local bm = bark:CreateComponent("StaticModel")
-                    bm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    bm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.25, 0.35, 0.12, 1.0), 0.0, 0.90))
-                    bm.castShadows = false
-                end
-
-                -- 两端截面
-                for side = -1, 1, 2 do
-                    local cap = logBody:CreateChild("Cap")
-                    cap.position = Vector3(0, side * logLen * 0.5, 0)
-                    cap.scale = Vector3(logRadius * 1.8, 0.05, logRadius * 1.8)
-                    local cm = cap:CreateComponent("StaticModel")
-                    cm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                    cm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.60, 0.48, 0.28, 1.0), 0.0, 0.82))
-                    cm.castShadows = false
-                end
-
-                -- 树枝窦子
-                local stumpData = {
-                    { angle = 0.6,  yOff = -0.25 },
-                    { angle = 2.0,  yOff =  0.15 },
-                    { angle = 3.8,  yOff = -0.15 },
-                    { angle = 5.1,  yOff =  0.30 },
-                    { angle = 1.5,  yOff = -0.35 },
-                }
-                for _, sd in ipairs(stumpData) do
-                    local stump = logBody:CreateChild("Stump")
-                    stump.position = Vector3(
-                        math.cos(sd.angle) * logRadius * 0.9,
-                        sd.yOff * logLen,
-                        math.sin(sd.angle) * logRadius * 0.9)
-                    stump.rotation = Quaternion(0, 0, -math.deg(sd.angle) + 90)
-                    stump.scale = Vector3(0.12, 0.25, 0.12)
-                    local sm = stump:CreateComponent("StaticModel")
-                    sm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                    sm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.40, 0.32, 0.16, 1.0), 0.0, 0.88))
-                    sm.castShadows = false
-                end
-
-                obs.isRollingLog = true
-                obs.logBaseY = logRadius + 0.1
                 obs.logSpin = 0
             else
                 node.position = Vector3(barOffsetX, 1.3, zPos)
@@ -944,205 +375,11 @@ function World.SpawnObstacle(zPos)
             obs.damage = 2
 
             if State.biomeIndex == 1 then
-                -- Savanna: 西部广告牌（底部留足空间让玩家滑铲通过）
-                local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
-                node.position = Vector3(barOffsetX, 2.2, zPos)
-
-                -- 两根木柱
-                for side = -1, 1, 2 do
-                    local post = node:CreateChild("Post")
-                    post.position = Vector3(side * barW * 0.42, -0.8, 0)
-                    post.scale = Vector3(0.2, 3.8, 0.2)
-                    local pm = post:CreateComponent("StaticModel")
-                    pm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    pm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.45, 0.28, 0.12, 1.0), 0.0, 0.88))
-                    pm.castShadows = true
-                end
-
-                -- 广告牌木板底板（实体）
-                local signW = barW * 0.8
-                local signH = signW * (768 / 1376)  -- 海报宽高比
-                local boardNode = node:CreateChild("Board")
-                boardNode.position = Vector3(0, 0.4, 0)
-                boardNode.scale = Vector3(signW, signH, 0.08)
-                local boardModel = boardNode:CreateComponent("StaticModel")
-                boardModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                boardModel:SetMaterial(Config.CreatePBRMaterial(
-                    Color(0.55, 0.35, 0.15, 1.0), 0.0, 0.85))
-                boardModel.castShadows = true
-
-                -- 木板边框（深色木条）
-                local frameThick = 0.06
-                local frameDepth = 0.12
-                local frameOffsets = {
-                    { Vector3(0, signH * 0.5, 0),  Vector3(signW + frameThick * 2, frameThick, frameDepth) },  -- 上
-                    { Vector3(0, -signH * 0.5, 0), Vector3(signW + frameThick * 2, frameThick, frameDepth) },  -- 下
-                    { Vector3(-signW * 0.5, 0, 0), Vector3(frameThick, signH, frameDepth) },  -- 左
-                    { Vector3(signW * 0.5, 0, 0),  Vector3(frameThick, signH, frameDepth) },  -- 右
-                }
-                for _, fo in ipairs(frameOffsets) do
-                    local frame = node:CreateChild("Frame")
-                    frame.position = Vector3(fo[1].x, 0.4 + fo[1].y, fo[1].z)
-                    frame.scale = fo[2]
-                    local fm = frame:CreateComponent("StaticModel")
-                    fm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    fm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.35, 0.20, 0.08, 1.0), 0.0, 0.90))
-                    fm.castShadows = true
-                end
-
-                -- 海报贴图（Billboard 贴在木板前面）
-                local posterNode = node:CreateChild("Poster")
-                posterNode.position = Vector3(0, 0.4, -0.05)  -- 略微前移，贴在木板正面
-
-                local bbSet = posterNode:CreateComponent("BillboardSet")
-                bbSet.numBillboards = 1
-                bbSet.sorted = true
-                bbSet.faceCameraMode = FC_NONE
-                bbSet.castShadows = false
-
-                if not blockTexCache["billboard_poster"] then
-                    local mat = Material:new()
-                    mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
-                    mat:SetTexture(0, cache:GetResource("Texture2D", "image/billboard_poster.png"))
-                    mat:SetShaderParameter("MatDiffColor", Variant(Color(2.5, 2.5, 2.5, 1.0)))
-                    blockTexCache["billboard_poster"] = mat
-                end
-                bbSet:SetMaterial(blockTexCache["billboard_poster"])
-
-                local bb = bbSet:GetBillboard(0)
-                bb.position = Vector3(0, 0, 0)
-                bb.size = Vector2(signW * 0.48, signH * 0.48)  -- 略小于木板，留出边框
-                bb.enabled = true
-                bbSet:Commit()
+                -- Savanna: 西部广告牌
+                Obstacles.BuildSavannaBillboard(node, barOffsetX, zPos, barWidthRatio)
             elseif State.biomeIndex == 3 then
                 -- Cliffs: 吊脚楼
-                local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
-                node.position = Vector3(barOffsetX, 0, zPos)
-
-                local logMat = Config.CreatePBRMaterial(
-                    Color(0.48, 0.32, 0.15, 1.0), 0.0, 0.82)
-                local darkLogMat = Config.CreatePBRMaterial(
-                    Color(0.35, 0.22, 0.10, 1.0), 0.0, 0.88)
-                local plankMat = Config.CreatePBRMaterial(
-                    Color(0.55, 0.40, 0.22, 1.0), 0.0, 0.80)
-                local roofMat = Config.CreatePBRMaterial(
-                    Color(0.30, 0.25, 0.18, 1.0), 0.0, 0.90)
-
-                local floorY = 1.5    -- 楼板高度（玩家需滑铲通过下方）
-                local houseH = 1.6    -- 屋身高度
-                local houseD = 1.4    -- 纵深
-                local roofH = 0.8     -- 屋顶高度
-
-                -- 4根圆柱吊脚（前后左右）
-                local legW = 0.15
-                for _, lx in ipairs({ -barW * 0.4, barW * 0.4 }) do
-                    for _, lz in ipairs({ -houseD * 0.4, houseD * 0.4 }) do
-                        local leg = node:CreateChild("Leg")
-                        leg.position = Vector3(lx, floorY * 0.5, lz)
-                        leg.scale = Vector3(legW, floorY, legW)
-                        local lm = leg:CreateComponent("StaticModel")
-                        lm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                        lm:SetMaterial(logMat)
-                        lm.castShadows = true
-                    end
-                end
-
-                -- 楼板（厚实木板）
-                local floor = node:CreateChild("Floor")
-                floor.position = Vector3(0, floorY, 0)
-                floor.scale = Vector3(barW * 0.9, 0.1, houseD)
-                local fm = floor:CreateComponent("StaticModel")
-                fm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                fm:SetMaterial(plankMat)
-                fm.castShadows = true
-
-                -- 屋身墙体（前后两面墙+左右侧板）
-                -- 后墙
-                local backWall = node:CreateChild("BackWall")
-                backWall.position = Vector3(0, floorY + houseH * 0.5, houseD * 0.45)
-                backWall.scale = Vector3(barW * 0.88, houseH, 0.06)
-                local bwm = backWall:CreateComponent("StaticModel")
-                bwm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                bwm:SetMaterial(plankMat)
-                bwm.castShadows = true
-
-                -- 左右侧板
-                for side = -1, 1, 2 do
-                    local sideWall = node:CreateChild("SideWall")
-                    sideWall.position = Vector3(side * barW * 0.44, floorY + houseH * 0.5, 0)
-                    sideWall.scale = Vector3(0.06, houseH, houseD * 0.88)
-                    local swm = sideWall:CreateComponent("StaticModel")
-                    swm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    swm:SetMaterial(plankMat)
-                    swm.castShadows = true
-                end
-
-                -- 前面横梁（留空做门洞效果，只有上半部）
-                local frontBeam = node:CreateChild("FrontBeam")
-                frontBeam.position = Vector3(0, floorY + houseH * 0.85, -houseD * 0.45)
-                frontBeam.scale = Vector3(barW * 0.88, houseH * 0.3, 0.06)
-                local fbm = frontBeam:CreateComponent("StaticModel")
-                fbm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                fbm:SetMaterial(darkLogMat)
-                fbm.castShadows = true
-
-                -- 窗户（前墙左右各一个小方洞，用深色方块模拟）
-                for side = -1, 1, 2 do
-                    local window = node:CreateChild("Window")
-                    window.position = Vector3(
-                        side * barW * 0.2,
-                        floorY + houseH * 0.5,
-                        -houseD * 0.46)
-                    window.scale = Vector3(barW * 0.12, houseH * 0.25, 0.04)
-                    local wm = window:CreateComponent("StaticModel")
-                    wm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    wm:SetMaterial(Config.CreatePBRMaterial(
-                        Color(0.12, 0.10, 0.08, 1.0), 0.0, 0.95))
-                    wm.castShadows = false
-                end
-
-                -- 三角屋顶（用两个倾斜的板拼成人字形）
-                local roofW = barW * 0.55
-                local roofLen = houseD * 1.1
-                for side = -1, 1, 2 do
-                    local roofPanel = node:CreateChild("Roof")
-                    local roofAngle = side * -28
-                    roofPanel.position = Vector3(
-                        side * roofW * 0.4,
-                        floorY + houseH + roofH * 0.35,
-                        0)
-                    roofPanel.rotation = Quaternion(0, 0, roofAngle)
-                    roofPanel.scale = Vector3(roofW, 0.06, roofLen)
-                    local rm = roofPanel:CreateComponent("StaticModel")
-                    rm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                    rm:SetMaterial(roofMat)
-                    rm.castShadows = true
-                end
-
-                -- 屋顶脊梁
-                local ridge = node:CreateChild("Ridge")
-                ridge.position = Vector3(0, floorY + houseH + roofH * 0.62, 0)
-                ridge.scale = Vector3(0.08, 0.08, roofLen * 1.05)
-                local rdm = ridge:CreateComponent("StaticModel")
-                rdm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                rdm:SetMaterial(darkLogMat)
-                rdm.castShadows = true
-
-                -- 屋檐挂饰（2-3条短竹竿/木条）
-                for j = 1, math.random(2, 3) do
-                    local hang = node:CreateChild("Hang")
-                    hang.position = Vector3(
-                        (math.random() - 0.5) * barW * 0.5,
-                        floorY - 0.05,
-                        -houseD * 0.3 + math.random() * houseD * 0.2)
-                    hang.scale = Vector3(0.03, 0.25 + math.random() * 0.15, 0.03)
-                    local hm = hang:CreateComponent("StaticModel")
-                    hm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
-                    hm:SetMaterial(darkLogMat)
-                    hm.castShadows = false
-                end
+                Obstacles.BuildStiltHouse(node, barOffsetX, zPos, barWidthRatio)
             else
                 local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
                 node.position = Vector3(barOffsetX, 1.6, zPos)
@@ -1151,7 +388,7 @@ function World.SpawnObstacle(zPos)
                 model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
                 model:SetMaterial(Config.CreateObsMaterial(vis.overhead))
                 model.castShadows = true
-                DecorateOverhead(node, State.biomeIndex, vis)
+                Obstacles.DecorateOverhead(node, State.biomeIndex, vis)
 
                 for side = -1, 1, 2 do
                     local pillar = node:CreateChild("Pillar")
