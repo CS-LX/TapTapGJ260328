@@ -4,6 +4,7 @@
 
 local Config    = require "Game.Config"
 local State     = require "Game.State"
+local SFX       = require "Game.SFX"
 local Magnet    = require "Game.Items.Magnet"
 local Canyon    = require "Game.World.Canyon"
 local Holes     = require "Game.World.Holes"
@@ -511,9 +512,15 @@ function World.UpdateObstacles(dt)
                     State.health = State.health - damage
                     if State.health <= 0 then
                         State.health = 0
+                        SFX.PlayRandom({
+                            "laugh_private_1.ogg",
+                            "laugh_private_2.ogg",
+                            "laugh_private_3.ogg",
+                        }, 0.9)
                         State.GameOver()
                         return
                     else
+                        SFX.Play("thud.ogg", 0.7)
                         State.isInvincible = true
                         State.invincibleTimer = Config.INVINCIBLE_DURATION
                         State.hitFlashAlpha = 180

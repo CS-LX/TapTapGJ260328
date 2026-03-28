@@ -6,6 +6,7 @@ local Config      = require "Game.Config"
 local State       = require "Game.State"
 local ItemManager = require "Game.Items.ItemManager"
 local BGM         = require "Game.BGM"
+local SFX         = require "Game.SFX"
 local Scenery     = require "Game.World.Scenery"
 
 local Player = {}
@@ -214,6 +215,9 @@ function Player.StartGame()
     State.invincibleTimer = 0.0
     State.hitFlashAlpha = 0
 
+    -- 重新开始音效
+    SFX.Play("time_rewind.ogg", 0.8)
+
     -- 清除旧障碍物和金币
     State.ClearAll()
     ItemManager.ClearAll()
@@ -275,6 +279,7 @@ function Player.Update(dt)
                 -- 飞跃沟壑时推进 BGM 阶段
                 local newStage = 4 - math.min(State.biomeChangeCount, 3)
                 BGM.SetStage(newStage)
+                SFX.Play("eagle_screech.ogg", 0.8)
                 print("[Canyon] Auto jump triggered! BGM stage → " .. newStage)
             end
         end
@@ -302,6 +307,10 @@ function Player.Update(dt)
 
     -- 虚空坠落中：只做坠落物理和翻滚动画，不做其他逻辑
     if State.isVoidFalling then
+        -- 坠落瞬间播放威廉尖叫
+        if State.voidFallTimer == 0 then
+            SFX.Play("wilhelm_scream.ogg", 0.9)
+        end
         State.voidFallTimer = State.voidFallTimer + dt
         -- 前进逐渐减速
         local forwardSpeed = State.runSpeed * math.max(0, 1.0 - State.voidFallTimer * 0.8)

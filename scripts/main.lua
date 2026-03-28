@@ -13,6 +13,7 @@ local Camera      = require "Game.Camera"
 local GameUI      = require "Game.UI"
 local ItemManager = require "Game.Items.ItemManager"
 local BGM         = require "Game.BGM"
+local SFX         = require "Game.SFX"
 
 -- 加载道具模块（触发自动注册）
 require "Game.Items.Heart"
@@ -41,6 +42,9 @@ function Start()
     Player.Create()
     World.CreateInitialGround()
 
+    -- 初始化音效系统
+    SFX.Init(State.scene)
+
     -- 初始化 BGM（4轨同时播放，默认阶段4，通过 BGM.SetStage 控制）
     BGM.Init(State.scene, { volume = 0.7 })
     BGM.SetStage(4)
@@ -63,6 +67,7 @@ function Start()
 end
 
 function Stop()
+    SFX.Destroy()
     BGM.Destroy()
     if State.nvgCtx ~= nil then
         nvgDelete(State.nvgCtx)
