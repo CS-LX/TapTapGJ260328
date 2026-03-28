@@ -182,7 +182,7 @@ function Player.Jump()
     if not State.isJumping and not State.isSliding then
         State.isJumping = true
         State.playerVelocityY = Config.JUMP_VELOCITY
-        SFX.Play("throw.ogg", 0.35)
+        SFX.Play("throw.ogg", 0.6)
     end
 end
 
@@ -256,12 +256,12 @@ function Player.Update(dt)
 
     -- 峡谷自动跳跃检测
     local playerZ = State.playerNode.position.z
-    if not State.isAutoJumping and not State.isJumping then
+    if not State.isAutoJumping then
         local canyon = World.GetNextCanyon(playerZ)
         if canyon then
             local distToCanyon = canyon.startZ - playerZ
             if distToCanyon > 0 and distToCanyon < Config.CANYON_TRIGGER_OFFSET then
-                -- 触发自动跳跃
+                -- 触发自动跳跃（即使玩家在半空中也执行飞跃）
                 State.isJumping = true
                 State.isAutoJumping = true
                 State.playerVelocityY = Config.CANYON_JUMP_VELOCITY
