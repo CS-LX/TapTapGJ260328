@@ -715,17 +715,62 @@ end
 -- ============================================================================
 
 function Player.UpdateMenuAnimation(dt)
-    if State.playerNode then
-        State.playerNode.rotation = Quaternion(0, 0, 0)
-        State.playerNode.position = Vector3(0, 0, 0)
-    end
     local t = GetTime():GetElapsedTime()
-    State.cameraNode.position = Vector3(
-        math.sin(t * 0.3) * 2,
-        5.0 + math.sin(t * 0.5) * 0.5,
-        -8.0
-    )
-    State.cameraNode.rotation = Quaternion(25, 0, 0)
+
+    if State.playerNode then
+        -- 角色位置：居中偏前，略向右，让画面更有层次
+        State.playerNode.position = Vector3(0.3, 0, 2.0)
+        -- 身体轻微左右晃动（跑步节奏感）
+        local bodyRoll = math.sin(t * 6.0) * 2.5
+        State.playerNode.rotation = Quaternion(0, 0, bodyRoll)
+
+        -- 腿部跑步摆动（快节奏，展示"快跑"主题）
+        local legSpeed = 8.0  -- 比游戏中更快，营造活力
+        local legSwing = math.sin(t * legSpeed) * 0.4
+        local leftLeg = State.playerNode:GetChild("LeftLeg")
+        local rightLeg = State.playerNode:GetChild("RightLeg")
+        if leftLeg then
+            leftLeg.position = Vector3(-0.15, 0.4, legSwing)
+            leftLeg.scale = Vector3(0.25, 0.8, 0.25)
+            leftLeg.rotation = Quaternion(-legSwing * 50, Vector3.RIGHT)
+        end
+        if rightLeg then
+            rightLeg.position = Vector3(0.15, 0.4, -legSwing)
+            rightLeg.scale = Vector3(0.25, 0.8, 0.25)
+            rightLeg.rotation = Quaternion(legSwing * 50, Vector3.RIGHT)
+        end
+
+        -- 头部微微上下点动
+        local headNode = State.playerNode:GetChild("Head")
+        if headNode then
+            local headBob = math.abs(math.sin(t * legSpeed)) * 0.08
+            headNode.position = Vector3(0, 2.0 + headBob, 0)
+        end
+
+        -- 身体轻微上下弹跳（跑步时重心起伏）
+        local bodyNode = State.playerNode:GetChild("Body")
+        if bodyNode then
+            local bodyBob = math.abs(math.sin(t * legSpeed)) * 0.06
+            bodyNode.position = Vector3(0, 0.9 + bodyBob, 0)
+            bodyNode.scale = Vector3(0.6, 1.8, 0.5)
+        end
+    end
+
+    -- 相机：更有电影感的环绕运动
+    -- 轻微绕角色旋转 + 呼吸式远近变化
+    local orbitAngle = t * 0.25  -- 缓慢环绕
+    local orbitRadius = 7.5 + math.sin(t * 0.4) * 1.0  -- 远近呼吸
+    local camHeight = 3.5 + math.sin(t * 0.35) * 0.6  -- 高低起伏
+    local camX = math.sin(orbitAngle) * orbitRadius * 0.25  -- 水平弧度小
+    local camZ = -orbitRadius + math.cos(orbitAngle) * 0.5
+
+    State.cameraNode.position = Vector3(camX, camHeight, camZ)
+    -- 相机始终看向角色身体中心偏上
+    local lookTarget = Vector3(0.3, 1.2, 2.0)
+    local dir = lookTarget - State.cameraNode.position
+    local pitch = math.deg(math.atan(dir.y, math.sqrt(dir.x * dir.x + dir.z * dir.z)))
+    local yaw = math.deg(math.atan(dir.x, dir.z))
+    State.cameraNode.rotation = Quaternion(pitch, yaw, 0)
 end
 
 return Player

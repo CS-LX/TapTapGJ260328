@@ -51,78 +51,237 @@ end
 -- 菜单画面
 -- ============================================================================
 
+-- 菜单装饰粒子（Emoji 飘过）
+local menuParticles = {}
+local MENU_EMOJIS = {"🏃", "💨", "🚛", "🦅", "⚡", "🔥", "💥", "🪙"}
+local MENU_SLOGANS = {
+    "🦅 飞跃大峡谷",
+    "🚛 大运狂飙碾压一切",
+    "⚡ 极速 180 停不下来",
+}
+
 function GameUI.DrawMenu(w, h)
     local vg = State.nvgCtx
+    local t = GetTime():GetElapsedTime()
 
-    -- 半透明背景
+    -- ================================================================
+    -- 背景渐变遮罩（上深下浅，不是死板全黑）
+    -- ================================================================
     nvgBeginPath(vg)
     nvgRect(vg, 0, 0, w, h)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, 120))
+    local bgGrad = nvgLinearGradient(vg, 0, 0, 0, h,
+        nvgRGBA(0, 0, 0, 160), nvgRGBA(10, 15, 40, 80))
+    nvgFillPaint(vg, bgGrad)
     nvgFill(vg)
 
-    -- 标题
+    -- ================================================================
+    -- 背景速度线（淡淡几条营造速度氛围）
+    -- ================================================================
+    GameUI.DrawMenuSpeedLines(vg, w, h, t)
+
+    -- ================================================================
+    -- 飘过的 Emoji 装饰粒子
+    -- ================================================================
+    GameUI.UpdateAndDrawMenuParticles(vg, w, h, t)
+
+    -- ================================================================
+    -- 主标题：「似腿快跑！！」
+    -- ================================================================
     nvgFontFace(vg, "sans")
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
 
-    -- 标题阴影
-    nvgFontSize(vg, 56)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, 150))
-    nvgText(vg, w/2 + 2, h/2 - 78, "地铁跑酷")
+    -- 标题布局基准
+    local titleY = h * 0.28
+    local bounce = math.sin(t * 2.5) * 6  -- 弹跳
+    local tilt = math.sin(t * 1.8) * 1.5  -- 轻微摇摆角度（用位移模拟）
 
-    -- 标题
-    nvgFillColor(vg, nvgRGBA(255, 220, 50, 255))
-    nvgText(vg, w/2, h/2 - 80, "地铁跑酷")
+    -- 发光光晕（底层大字模糊效果）
+    local glowPulse = 0.6 + math.sin(t * 4) * 0.4
+    local glowAlpha = math.floor(glowPulse * 60)
+    nvgFontSize(vg, 72)
+    nvgFillColor(vg, nvgRGBA(255, 160, 30, glowAlpha))
+    nvgText(vg, w/2 + tilt, titleY + bounce, "似腿快跑！！")
 
-    -- 副标题
-    nvgFontSize(vg, 18)
-    nvgFillColor(vg, nvgRGBA(255, 255, 255, 200))
-    nvgText(vg, w/2, h/2 - 30, "SUBWAY SURFERS")
-
-    -- 开始提示（闪烁）
-    local t = GetTime():GetElapsedTime()
-    local alpha = math.floor(math.abs(math.sin(t * 3)) * 255)
-    nvgFontSize(vg, 24)
-    nvgFillColor(vg, nvgRGBA(255, 255, 255, alpha))
-    nvgText(vg, w/2, h/2 + 40, "点击屏幕或按空格开始")
-
-    -- 操作说明
-    nvgFontSize(vg, 14)
-    nvgFillColor(vg, nvgRGBA(200, 200, 200, 180))
-    nvgText(vg, w/2, h/2 + 90, "← → 切换跑道  |  ↑/空格 跳跃  |  ↓ 下蹲")
-    nvgText(vg, w/2, h/2 + 115, "触屏: 左右滑动切道 | 上滑跳跃 | 下滑下蹲")
-
-    -- 最高分
-    if State.highScore > 0 then
-        nvgFontSize(vg, 18)
-        nvgFillColor(vg, nvgRGBA(255, 200, 100, 220))
-        nvgText(vg, w/2, h/2 + 150, "最高分: " .. State.highScore)
+    -- 黑色描边（多层阴影模拟粗描边）
+    nvgFontSize(vg, 64)
+    for _, off in ipairs({{-3,-3},{3,-3},{-3,3},{3,3},{0,-4},{0,4},{-4,0},{4,0}}) do
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, 200))
+        nvgText(vg, w/2 + off[1] + tilt, titleY + off[2] + bounce, "似腿快跑！！")
     end
 
-    -- BGM 开关按钮（右上角）
-    local btnW, btnH = 44, 44
-    local btnX = w - btnW - 16
-    local btnY = 16
-    State.bgmBtnRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+    -- 主标题金色渐变（用两层颜色模拟渐变效果）
+    -- 上半金黄
+    nvgFillColor(vg, nvgRGBA(255, 230, 50, 255))
+    nvgText(vg, w/2 + tilt, titleY + bounce, "似腿快跑！！")
+    -- 叠加橙色层（下方偏移一像素）
+    nvgFillColor(vg, nvgRGBA(255, 150, 20, 100))
+    nvgText(vg, w/2 + tilt, titleY + bounce + 2, "似腿快跑！！")
 
-    -- 按钮背景
+    -- ================================================================
+    -- 特色标语轮播
+    -- ================================================================
+    local sloganIdx = math.floor(t / 2.5) % #MENU_SLOGANS + 1
+    local sloganT = (t % 2.5) / 2.5  -- 0→1 within each cycle
+    -- 淡入淡出：前0.2淡入，后0.2淡出，中间全亮
+    local sloganAlpha = 255
+    if sloganT < 0.15 then
+        sloganAlpha = math.floor(sloganT / 0.15 * 255)
+    elseif sloganT > 0.85 then
+        sloganAlpha = math.floor((1.0 - sloganT) / 0.15 * 255)
+    end
+
+    local sloganY = titleY + 55
+    nvgFontSize(vg, 22)
+    -- 标语阴影
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(sloganAlpha * 0.5)))
+    nvgText(vg, w/2 + 1, sloganY + 1, MENU_SLOGANS[sloganIdx])
+    -- 标语本体（青白色）
+    nvgFillColor(vg, nvgRGBA(180, 230, 255, sloganAlpha))
+    nvgText(vg, w/2, sloganY, MENU_SLOGANS[sloganIdx])
+
+    -- ================================================================
+    -- 开始按钮（脉冲发光 + 呼吸缩放）
+    -- ================================================================
+    local btnCenterY = h * 0.58
+    local breathe = 1.0 + math.sin(t * 3.5) * 0.06  -- 呼吸缩放
+    local btnFontSize = 28 * breathe
+    local pulseAlpha = math.floor((0.4 + math.sin(t * 3.5) * 0.3) * 255)
+
+    -- 按钮光环
+    local ringW = 220 * breathe
+    local ringH = 52 * breathe
     nvgBeginPath(vg)
-    nvgRoundedRect(vg, btnX, btnY, btnW, btnH, 8)
+    nvgRoundedRect(vg, w/2 - ringW/2, btnCenterY - ringH/2, ringW, ringH, ringH/2)
+    -- 外发光
+    nvgStrokeColor(vg, nvgRGBA(255, 200, 50, pulseAlpha))
+    nvgStrokeWidth(vg, 2.5)
+    nvgStroke(vg)
+    -- 内填充
+    local btnGrad = nvgLinearGradient(vg, w/2, btnCenterY - ringH/2, w/2, btnCenterY + ringH/2,
+        nvgRGBA(255, 200, 50, 50), nvgRGBA(255, 120, 20, 30))
+    nvgFillPaint(vg, btnGrad)
+    nvgFill(vg)
+
+    -- 按钮文字
+    nvgFontSize(vg, btnFontSize)
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, 180))
+    nvgText(vg, w/2 + 1, btnCenterY + 1, "▶  点击开始  ▶")
+    nvgFillColor(vg, nvgRGBA(255, 255, 255, 255))
+    nvgText(vg, w/2, btnCenterY, "▶  点击开始  ▶")
+
+    -- ================================================================
+    -- 最高分（金色奖杯样式）
+    -- ================================================================
+    if State.highScore > 0 then
+        local hsY = h * 0.72
+        nvgFontSize(vg, 20)
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, 120))
+        nvgText(vg, w/2 + 1, hsY + 1, "🏆 最高分: " .. State.highScore)
+        nvgFillColor(vg, nvgRGBA(255, 210, 80, 230))
+        nvgText(vg, w/2, hsY, "🏆 最高分: " .. State.highScore)
+    end
+
+    -- ================================================================
+    -- 操作指南（底部精简一行）
+    -- ================================================================
+    nvgFontSize(vg, 13)
+    nvgFillColor(vg, nvgRGBA(180, 180, 180, 140))
+    nvgText(vg, w/2, h - 40, "↔ 切道  |  ↑/空格 跳跃  |  ↓ 下蹲  |  触屏滑动操作")
+
+    -- ================================================================
+    -- BGM 开关按钮（右上角）
+    -- ================================================================
+    local btnW2, btnH2 = 44, 44
+    local btnX = w - btnW2 - 16
+    local btnY2 = 16
+    State.bgmBtnRect = { x = btnX, y = btnY2, w = btnW2, h = btnH2 }
+
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, btnX, btnY2, btnW2, btnH2, 8)
     nvgFillColor(vg, nvgRGBA(255, 255, 255, 30))
     nvgFill(vg)
     nvgStrokeColor(vg, nvgRGBA(255, 255, 255, 80))
     nvgStrokeWidth(vg, 1.5)
     nvgStroke(vg)
 
-    -- 图标
     nvgFontFace(vg, "sans")
     nvgFontSize(vg, 24)
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
     if BGM.IsMuted() then
         nvgFillColor(vg, nvgRGBA(255, 100, 100, 200))
-        nvgText(vg, btnX + btnW / 2, btnY + btnH / 2, "🔇")
+        nvgText(vg, btnX + btnW2 / 2, btnY2 + btnH2 / 2, "🔇")
     else
         nvgFillColor(vg, nvgRGBA(255, 255, 255, 220))
-        nvgText(vg, btnX + btnW / 2, btnY + btnH / 2, "🔊")
+        nvgText(vg, btnX + btnW2 / 2, btnY2 + btnH2 / 2, "🔊")
+    end
+end
+
+-- ============================================================================
+-- 菜单背景速度线（淡淡的水平速度氛围）
+-- ============================================================================
+
+function GameUI.DrawMenuSpeedLines(vg, w, h, t)
+    nvgSave(vg)
+    local lineCount = 12
+    for i = 1, lineCount do
+        -- 每条线在不同 Y 位置，从右往左
+        local seed = i * 137.5
+        local y = (math.sin(seed) * 0.5 + 0.5) * h
+        local speed = 80 + (math.sin(seed * 0.7) * 0.5 + 0.5) * 120
+        local x = w - ((t * speed + seed * 3) % (w + 200)) + 100
+        local lineLen = 40 + (math.sin(seed * 1.3) * 0.5 + 0.5) * 80
+        local alpha = math.floor(15 + math.sin(t * 2 + i) * 10)
+
+        nvgBeginPath(vg)
+        nvgMoveTo(vg, x, y)
+        nvgLineTo(vg, x + lineLen, y)
+        nvgStrokeColor(vg, nvgRGBA(200, 220, 255, alpha))
+        nvgStrokeWidth(vg, 1.0 + math.sin(seed) * 0.5)
+        nvgStroke(vg)
+    end
+    nvgRestore(vg)
+end
+
+-- ============================================================================
+-- 菜单 Emoji 装饰粒子系统
+-- ============================================================================
+
+function GameUI.UpdateAndDrawMenuParticles(vg, w, h, t)
+    -- 定期生成新粒子
+    if #menuParticles < 8 and math.floor(t * 2) ~= math.floor((t - GetTime():GetTimeStep()) * 2) then
+        local emoji = MENU_EMOJIS[math.random(1, #MENU_EMOJIS)]
+        table.insert(menuParticles, {
+            emoji = emoji,
+            x = w + 30,
+            y = 30 + math.random() * (h - 60),
+            speed = 30 + math.random() * 50,
+            size = 18 + math.random() * 16,
+            alpha = 120 + math.random(80),
+            wobble = math.random() * 6.28,  -- 初始相位
+        })
+    end
+
+    local dt = GetTime():GetTimeStep()
+    local toRemove = {}
+
+    nvgFontFace(vg, "sans")
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+
+    for i, p in ipairs(menuParticles) do
+        p.x = p.x - p.speed * dt
+        local wobbleY = math.sin(t * 1.5 + p.wobble) * 8
+
+        if p.x < -40 then
+            table.insert(toRemove, i)
+        else
+            nvgFontSize(vg, p.size)
+            nvgFillColor(vg, nvgRGBA(255, 255, 255, p.alpha))
+            nvgText(vg, p.x, p.y + wobbleY, p.emoji)
+        end
+    end
+
+    for i = #toRemove, 1, -1 do
+        table.remove(menuParticles, toRemove[i])
     end
 end
 
