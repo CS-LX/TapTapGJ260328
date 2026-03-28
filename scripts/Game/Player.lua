@@ -5,6 +5,7 @@
 local Config      = require "Game.Config"
 local State       = require "Game.State"
 local ItemManager = require "Game.Items.ItemManager"
+local BGM         = require "Game.BGM"
 
 local Player = {}
 
@@ -246,7 +247,10 @@ function Player.Update(dt)
                 -- 强制回中间跑道
                 State.currentLane = 0
                 State.targetLaneX = 0
-                print("[Canyon] Auto jump triggered!")
+                -- 飞跃沟壑时推进 BGM 阶段
+                local newStage = 4 - math.min(State.biomeChangeCount, 3)
+                BGM.SetStage(newStage)
+                print("[Canyon] Auto jump triggered! BGM stage → " .. newStage)
             end
         end
     end

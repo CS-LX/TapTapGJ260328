@@ -41,14 +41,11 @@ function Start()
     Player.Create()
     World.CreateInitialGround()
 
-    -- 初始化 BGM（4轨同时播放，默认静音，通过 BGM.SetStage 控制）
+    -- 初始化 BGM（4轨同时播放，默认阶段4，通过 BGM.SetStage 控制）
     BGM.Init(State.scene, { volume = 0.7 })
+    BGM.SetStage(4)
 
-    -- 场景切换时递增音轨阶段
-    State.onBiomeChange = function(count)
-        local newStage = 4 - math.min(count, 3)  -- count=1→3, count=2→2, count=3→1
-        BGM.SetStage(newStage)
-    end
+    -- BGM 阶段推进移至 Player.lua 自动跳跃时触发（飞跃沟壑瞬间）
 
     -- 重新开始时重置为第4阶段
     State.onGameReset = function()
