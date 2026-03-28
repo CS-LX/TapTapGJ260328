@@ -435,16 +435,25 @@ function GameUI.DrawBGMButton(vg, w, h)
 end
 
 -- ============================================================================
--- 扣血弹出效果
+-- 扣血弹出效果（玩家头顶弹出 + 心飞向左上角血条）
 -- ============================================================================
 
---- 外部调用：触发扣血弹出
+-- 飞行中的心列表 { startX, startY, targetX, targetY, timer, duration }
+local flyingHearts = {}
+
+--- 外部调用：触发扣血弹出（在玩家位置）
 function GameUI.TriggerHitPopup(damage)
     heartShakeTimer = 0.5
+    -- 获取玩家世界坐标，投影到屏幕
+    local playerPos = State.playerNode.position
+    local worldPos = Vector3(playerPos.x, playerPos.y + 2.5, playerPos.z)
     table.insert(hitPopups, {
         text = "-" .. damage .. " ❤️",
+        damage = damage,
         timer = 0,
-        duration = 1.2,
+        duration = 1.5,
+        worldPos = worldPos,           -- 3D 世界位置
+        heartsSent = false,            -- 飞心是否已发出
     })
 end
 
@@ -456,9 +465,10 @@ local function UpdateAndDrawHitPopups(vg, w, h, dt)
         if heartShakeTimer < 0 then heartShakeTimer = 0 end
     end
 
-    -- 绘制扣血弹出
+    local camera = State.cameraNode:GetComponent("Camera")
+
     nvgFontFace(vg, "sans")
-    nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
     for i = #hitPopups, 1, -1 do
         local p = hitPopups[i]
         p.timer = p.timer + dt
@@ -466,22 +476,89 @@ local function UpdateAndDrawHitPopups(vg, w, h, dt)
             table.remove(hitPopups, i)
         else
             local t = p.timer / p.duration
-            -- 弹出：先放大再缩小，向上飘
-            local scale = t < 0.15 and (t / 0.15 * 1.5) or (1.5 - (t - 0.15) * 0.6)
-            scale = math.max(scale, 0.8)
-            local offsetY = -t * 60
-            local alpha = t < 0.7 and 255 or math.floor(255 * (1.0 - (t - 0.7) / 0.3))
+            -- 将玩家世界坐标投影到屏幕
+            local upOffset = p.timer * 2.0
+            local worldP = Vector3(p.worldPos.x, p.worldPos.y + upOffset, p.worldPos.z)
+            local sp = camera:WorldToScreenPoint(worldP)
+            local sx = sp.x * w
+            local sy = sp.y * h
 
-            local px = 20
-            local py = 55 + offsetY
+            -- 阶段1 (0~0.4)：文字弹出放大
+            -- 阶段2 (0.4~1.0)：淡出，同时飞心
+            local alpha
+            if t < 0.1 then
+                alpha = math.floor(t / 0.1 * 255)
+            elseif t < 0.5 then
+                alpha = 255
+            else
+                alpha = math.floor(255 * (1.0 - (t - 0.5) / 0.5))
+            end
 
-            nvgFontSize(vg, 36 * scale)
+            local scale
+            if t < 0.08 then
+                scale = t / 0.08 * 1.8
+            elseif t < 0.2 then
+                scale = 1.8 - (t - 0.08) / 0.12 * 0.6
+            else
+                scale = 1.2
+            end
+
+            nvgFontSize(vg, 40 * scale)
             -- 黑色描边
-            nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.6)))
-            nvgText(vg, px + 2, py + 2, p.text)
+            nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.7)))
+            nvgText(vg, sx + 2, sy + 2, p.text)
             -- 红色主体
-            nvgFillColor(vg, nvgRGBA(255, 50, 50, alpha))
-            nvgText(vg, px, py, p.text)
+            nvgFillColor(vg, nvgRGBA(255, 40, 40, alpha))
+            nvgText(vg, sx, sy, p.text)
+
+            -- 在 0.3s 时发射飞行心
+            if not p.heartsSent and p.timer > 0.3 then
+                p.heartsSent = true
+                local damage = p.damage or 1
+                -- 当前血量已扣过，飞心对应扣掉的槽位
+                for hi = 1, damage do
+                    -- 目标：左上角第 (health + hi) 颗心的位置
+                    local slotIndex = State.health + hi
+                    local targetX = 20 + (slotIndex - 1) * 28 + 14
+                    local targetY = 25
+                    table.insert(flyingHearts, {
+                        startX = sx,
+                        startY = sy,
+                        targetX = targetX,
+                        targetY = targetY,
+                        timer = 0,
+                        duration = 0.5,
+                    })
+                end
+            end
+        end
+    end
+
+    -- 绘制飞行中的心（从玩家位置飞向左上角血条）
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    for i = #flyingHearts, 1, -1 do
+        local fh = flyingHearts[i]
+        fh.timer = fh.timer + dt
+        if fh.timer >= fh.duration then
+            table.remove(flyingHearts, i)
+        else
+            local t = fh.timer / fh.duration
+            -- 缓出曲线
+            local ease = 1.0 - (1.0 - t) * (1.0 - t)
+            local cx = fh.startX + (fh.targetX - fh.startX) * ease
+            local cy = fh.startY + (fh.targetY - fh.startY) * ease
+            -- 弧形偏移（抛物线感）
+            local arc = math.sin(t * 3.14159) * -40
+            cy = cy + arc
+
+            local fAlpha = t < 0.8 and 255 or math.floor(255 * (1.0 - (t - 0.8) / 0.2))
+            local fScale = 1.5 - ease * 0.8
+
+            nvgFontSize(vg, 32 * fScale)
+            nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(fAlpha * 0.5)))
+            nvgText(vg, cx + 1, cy + 1, "❤️")
+            nvgFillColor(vg, nvgRGBA(255, 255, 255, fAlpha))
+            nvgText(vg, cx, cy, "❤️")
         end
     end
 end
