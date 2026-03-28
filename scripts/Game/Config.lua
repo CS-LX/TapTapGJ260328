@@ -46,6 +46,10 @@ Config.CAM_LOOK_AHEAD   = 8.0          -- 相机前瞻
 Config.MAX_HEALTH          = 3
 Config.INVINCIBLE_DURATION = 1.5
 
+-- 心心道具配置
+Config.HEART_INTERVAL    = 40.0        -- 心心出现间隔（米），比较稀有
+Config.HEART_HEIGHT      = 1.2         -- 心心高度
+
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 

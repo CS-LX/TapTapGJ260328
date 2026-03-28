@@ -199,6 +199,7 @@ function Player.StartGame()
     Player.SetVisible(true)
     State.nextObstacleZ = 30.0
     State.nextCoinZ = 15.0
+    State.nextHeartZ = 50.0
 
     -- 重新生成地面
     World.CreateInitialGround()

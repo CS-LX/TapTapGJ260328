@@ -171,12 +171,20 @@ function GameUI.DrawHUD(w, h)
 
             nvgFontSize(vg, fontSize)
             nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+
+            local popupText = popup.text or "+50"
+            local isHeart = popup.text ~= nil
+
             -- 阴影
             nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.5)))
-            nvgText(vg, sx + 1, sy + 1, "+50")
-            -- 金色文字
-            nvgFillColor(vg, nvgRGBA(255, 230, 50, alpha))
-            nvgText(vg, sx, sy, "+50")
+            nvgText(vg, sx + 1, sy + 1, popupText)
+            -- 文字颜色：心心用红色，金币用金色
+            if isHeart then
+                nvgFillColor(vg, nvgRGBA(255, 80, 80, alpha))
+            else
+                nvgFillColor(vg, nvgRGBA(255, 230, 50, alpha))
+            end
+            nvgText(vg, sx, sy, popupText)
         end
     end
 end

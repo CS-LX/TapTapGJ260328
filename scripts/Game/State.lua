@@ -42,6 +42,10 @@ State.nextObstacleZ = 30.0    -- 下一个障碍物Z位置
 State.nextCoinZ = 15.0        -- 下一个金币Z位置
 State.groundSegments = {}     -- 地面段
 
+-- 道具系统
+State.heartNodes = {}              -- 心心道具列表
+State.nextHeartZ = 50.0            -- 下一个心心Z位置
+
 -- 血量系统
 State.health = Config.MAX_HEALTH
 State.isInvincible = false
@@ -78,6 +82,11 @@ function State.ClearAll()
     end
     State.coinNodes = {}
     State.scorePopups = {}
+
+    for _, heart in ipairs(State.heartNodes) do
+        if heart.node then heart.node:Remove() end
+    end
+    State.heartNodes = {}
 
     for _, seg in ipairs(State.groundSegments) do
         if seg.node then seg.node:Remove() end

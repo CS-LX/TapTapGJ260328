@@ -217,6 +217,135 @@ function World.SpawnCoins(zPos)
 end
 
 -- ============================================================================
+-- 心心道具生成
+-- ============================================================================
+
+function World.SpawnHeart(zPos)
+    local lane = math.random(-1, 1)
+
+    local heartNode = State.scene:CreateChild("Heart")
+    heartNode.position = Vector3(
+        lane * Config.LANE_WIDTH,
+        Config.HEART_HEIGHT,
+        zPos
+    )
+    heartNode.scale = Vector3(0.45, 0.45, 0.45)
+
+    local heartModel = heartNode:CreateComponent("StaticModel")
+    heartModel:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+
+    -- 红色发光材质
+    local heartMat = Material:new()
+    heartMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
+    heartMat:SetShaderParameter("MatDiffColor", Variant(Color(0.9, 0.1, 0.15, 1.0)))
+    heartMat:SetShaderParameter("Metallic", Variant(0.3))
+    heartMat:SetShaderParameter("Roughness", Variant(0.4))
+    heartMat:SetShaderParameter("MatEmissiveColor", Variant(Color(0.6, 0.05, 0.08)))
+    heartModel:SetMaterial(heartMat)
+    heartModel.castShadows = false
+
+    table.insert(State.heartNodes, {
+        node = heartNode,
+        z = zPos,
+        lane = lane,
+        collected = false,
+    })
+end
+
+-- ============================================================================
+-- 心心道具更新
+-- ============================================================================
+
+function World.UpdateHearts(dt)
+    local playerZ = State.playerNode.position.z
+    local playerX = State.playerNode.position.x
+
+    -- 生成新心心（仅在血量未满时才生成）
+    while State.nextHeartZ < playerZ + Config.SPAWN_DISTANCE do
+        if State.health < Config.MAX_HEALTH then
+            World.SpawnHeart(State.nextHeartZ)
+        end
+        State.nextHeartZ = State.nextHeartZ + Config.HEART_INTERVAL + math.random() * 20
+    end
+
+    local toRemove = {}
+    for i, heart in ipairs(State.heartNodes) do
+        if heart.node and not heart.collected then
+            if heart.collecting then
+                -- 收集动画
+                heart.collectTimer = heart.collectTimer + dt
+                local t = heart.collectTimer / 0.5
+
+                if t >= 1.0 then
+                    heart.collected = true
+                    heart.node:Remove()
+                    heart.node = nil
+                else
+                    local pos = heart.node.position
+                    pos.y = heart.collectOriginY + t * 3.0
+                    heart.node.position = pos
+
+                    -- 膨胀后消失
+                    local s
+                    if t < 0.3 then
+                        s = 0.45 * (1.0 + t / 0.3 * 1.0)
+                    else
+                        s = 0.9 * (1.0 - (t - 0.3) / 0.7)
+                    end
+                    heart.node.scale = Vector3(s, s, s)
+
+                    heart.node:Rotate(Quaternion(0, 540 * dt, 0))
+                end
+            else
+                -- 上下浮动 + 旋转
+                local baseY = Config.HEART_HEIGHT
+                local floatOffset = math.sin(GetTime():GetElapsedTime() * 3.0 + heart.z) * 0.2
+                local pos = heart.node.position
+                pos.y = baseY + floatOffset
+                heart.node.position = pos
+                heart.node:Rotate(Quaternion(0, 90 * dt, 0))
+
+                -- 碰撞检测
+                local heartPos = heart.node.position
+                local dz = math.abs(heartPos.z - playerZ)
+                local dx = math.abs(heartPos.x - playerX)
+                if dz < 1.0 and dx < 1.0 then
+                    -- 只在血量未满时才收集
+                    if State.health < Config.MAX_HEALTH then
+                        heart.collecting = true
+                        heart.collectTimer = 0.0
+                        heart.collectOriginY = heartPos.y
+                        State.health = math.min(State.health + 1, Config.MAX_HEALTH)
+
+                        -- 回血弹出文字
+                        table.insert(State.scorePopups, {
+                            worldPos = Vector3(heartPos.x, heartPos.y, heartPos.z),
+                            baseY = heartPos.y + 0.5,
+                            timer = 0,
+                            duration = 0.8,
+                            text = "+❤️",
+                        })
+                    end
+                end
+
+                if heartPos.z < playerZ - Config.DESPAWN_DISTANCE then
+                    table.insert(toRemove, i)
+                end
+            end
+        elseif heart.collected then
+            table.insert(toRemove, i)
+        end
+    end
+
+    for i = #toRemove, 1, -1 do
+        local idx = toRemove[i]
+        local heart = State.heartNodes[idx]
+        if heart.node then heart.node:Remove() end
+        table.remove(State.heartNodes, idx)
+    end
+end
+
+-- ============================================================================
 -- 障碍物更新
 -- ============================================================================
 
