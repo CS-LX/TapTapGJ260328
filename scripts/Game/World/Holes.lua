@@ -425,9 +425,12 @@ function Holes.GenerateForSegment(segStartZ, segEndZ, biomeIdx)
 end
 
 --- 检查 (z, lane) 是否在窟窿上
+--- 判定范围比视觉缩小 HOLE_HITBOX_SHRINK（前后各收缩），降低掉坑难度
+local HOLE_HITBOX_SHRINK = 1.2  -- 前后各缩 1.2 米
+
 function Holes.IsOverHole(z, lane)
     for _, hole in ipairs(State.holes) do
-        if z >= hole.zStart and z <= hole.zEnd then
+        if z >= hole.zStart + HOLE_HITBOX_SHRINK and z <= hole.zEnd - HOLE_HITBOX_SHRINK then
             for _, hl in ipairs(hole.lanes) do
                 if hl == lane then return true end
             end
