@@ -288,6 +288,14 @@ function Player.Update(dt)
                 -- 注意：不清除侧边装饰，让旧装饰自然滚动消失，保持视觉连续性
                 print("[Canyon] Scene switch: cleared obstacles")
 
+                -- ======== 峡谷飞跃视觉特效触发 ========
+                State.fxFovTarget      = Config.CANYON_FX_FOV_FLIGHT  -- FOV 拉宽到 65°
+                State.fxFlashTimer     = Config.CANYON_FX_FLASH_DURATION  -- 青白闪光
+                State.fxFlashColor     = {180, 230, 255}
+                State.fxSpeedLines     = true
+                State.fxSpeedLineColor = {100, 200, 255}   -- 青色速度线
+                State.fxVignetteTarget = 0.4
+
                 -- 飞跃沟壑时推进 BGM 阶段
                 local newStage = 4 - math.min(State.biomeChangeCount, 3)
                 BGM.SetStage(newStage)
@@ -302,6 +310,18 @@ function Player.Update(dt)
         State.isAutoJumping = false
         State.isInvincible = true
         State.invincibleTimer = 1.5
+
+        -- ======== 峡谷飞跃特效恢复 ========
+        -- 如果大运仍激活，切换为大运特效；否则恢复正常
+        if State.isDayunActive then
+            State.fxFovTarget      = Config.DAYUN_FX_FOV
+            State.fxSpeedLineColor = {255, 120, 30}
+            State.fxVignetteTarget = 0.3
+        else
+            State.fxFovTarget      = Config.CANYON_FX_FOV_NORMAL
+            State.fxSpeedLines     = false
+            State.fxVignetteTarget = 0.0
+        end
     end
 
     local pos = State.playerNode.position
@@ -482,49 +502,115 @@ function Player.UpdateVisual(dt)
 end
 
 -- ============================================================================
--- 峡谷拖尾特效
+-- 峡谷拖尾特效（增强版：多色火焰 + 风粒子）
 -- ============================================================================
 
 local trailSpawnTimer = 0
-local trailMat = nil
+local windSpawnTimer  = 0
+
+-- 火焰材质缓存（避免每帧创建）
+local trailMats = {}
+local TRAIL_COLORS = {
+    { diffuse = Color(1.0, 1.0, 1.0, 0.9),  emissive = Color(3.0, 3.0, 3.0) },    -- 白热核心
+    { diffuse = Color(0.2, 0.85, 1.0, 0.8), emissive = Color(0.3, 1.5, 2.0) },    -- 青色
+    { diffuse = Color(0.3, 0.4, 1.0, 0.75), emissive = Color(0.4, 0.5, 2.0) },    -- 蓝色
+    { diffuse = Color(0.6, 0.2, 1.0, 0.65), emissive = Color(0.8, 0.3, 2.0) },    -- 紫色
+    { diffuse = Color(0.1, 0.6, 0.9, 0.7),  emissive = Color(0.2, 1.0, 1.5) },    -- 天蓝
+}
+
+local windMat = nil  -- 风粒子材质
+
+local function getTrailMat(idx)
+    if trailMats[idx] then return trailMats[idx] end
+    local c = TRAIL_COLORS[idx]
+    local mat = Material:new()
+    mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
+    mat:SetShaderParameter("MatDiffColor", Variant(c.diffuse))
+    mat:SetShaderParameter("MatEmissiveColor", Variant(c.emissive))
+    mat:SetShaderParameter("Metallic", Variant(0.0))
+    mat:SetShaderParameter("Roughness", Variant(0.15))
+    trailMats[idx] = mat
+    return mat
+end
+
+local function getWindMat()
+    if windMat then return windMat end
+    windMat = Material:new()
+    windMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
+    windMat:SetShaderParameter("MatDiffColor", Variant(Color(1.0, 1.0, 1.0, 0.7)))
+    windMat:SetShaderParameter("MatEmissiveColor", Variant(Color(2.0, 2.0, 2.0)))
+    windMat:SetShaderParameter("Metallic", Variant(0.0))
+    windMat:SetShaderParameter("Roughness", Variant(0.1))
+    return windMat
+end
 
 function Player.SpawnTrail(playerPos)
     trailSpawnTimer = trailSpawnTimer + 1
-    -- 每2帧生成一个拖尾球
-    if trailSpawnTimer % 2 ~= 0 then return end
 
-    -- 懒创建拖尾材质（半透明发光蓝色）
-    if not trailMat then
-        trailMat = Material:new()
-        trailMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
-        trailMat:SetShaderParameter("MatDiffColor", Variant(Color(0.3, 0.6, 1.0, 0.8)))
-        trailMat:SetShaderParameter("MatEmissiveColor", Variant(Color(0.4, 0.6, 1.0)))
-        trailMat:SetShaderParameter("Metallic", Variant(0.0))
-        trailMat:SetShaderParameter("Roughness", Variant(0.2))
+    -- 每帧生成 2~3 个火焰粒子（比原来更密集）
+    local particlesPerFrame = 2
+    if trailSpawnTimer % 3 == 0 then particlesPerFrame = 3 end
+
+    for _ = 1, particlesPerFrame do
+        local colorIdx = math.random(1, #TRAIL_COLORS)
+        local mat = getTrailMat(colorIdx)
+
+        local trailNode = State.scene:CreateChild("Trail")
+        local offsetX = (math.random() - 0.5) * 1.0
+        local offsetY = (math.random() - 0.5) * 0.8
+        trailNode.position = Vector3(
+            playerPos.x + offsetX,
+            playerPos.y + 0.9 + offsetY,
+            playerPos.z - 0.5 - math.random() * 0.8
+        )
+        -- 核心粒子更大，外围粒子较小
+        local size = (colorIdx == 1) and (0.35 + math.random() * 0.2) or (0.2 + math.random() * 0.2)
+        trailNode.scale = Vector3(size, size, size)
+
+        local model = trailNode:CreateComponent("StaticModel")
+        model:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+        model:SetMaterial(mat)
+        model.castShadows = false
+
+        table.insert(State.trailNodes, {
+            node = trailNode,
+            life = 0,
+            maxLife = 0.4 + math.random() * 0.4,
+            startScale = size,
+        })
     end
 
-    local trailNode = State.scene:CreateChild("Trail")
-    -- 在角色身后略微随机位置生成
-    local offsetX = (math.random() - 0.5) * 0.6
-    local offsetY = (math.random() - 0.5) * 0.4
-    trailNode.position = Vector3(
-        playerPos.x + offsetX,
-        playerPos.y + 0.9 + offsetY,
-        playerPos.z - 0.8
-    )
-    local size = 0.25 + math.random() * 0.15
-    trailNode.scale = Vector3(size, size, size)
+    -- 风粒子：每 3 帧生成 1~2 个白色小点飞过
+    windSpawnTimer = windSpawnTimer + 1
+    if windSpawnTimer % 3 == 0 then
+        Player.SpawnWindParticle(playerPos)
+        if math.random() > 0.5 then
+            Player.SpawnWindParticle(playerPos)
+        end
+    end
+end
 
-    local model = trailNode:CreateComponent("StaticModel")
+--- 生成风粒子（白色小球从前方高速飞过）
+function Player.SpawnWindParticle(playerPos)
+    local node = State.scene:CreateChild("Wind")
+    local s = 0.05 + math.random() * 0.06
+    node.scale = Vector3(s, s, s)
+    -- 在玩家前方 15~25 米随机位置生成
+    node.position = Vector3(
+        playerPos.x + (math.random() - 0.5) * 10.0,
+        playerPos.y + (math.random() - 0.5) * 6.0 + 2.0,
+        playerPos.z + 15 + math.random() * 10
+    )
+    local model = node:CreateComponent("StaticModel")
     model:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
-    model:SetMaterial(trailMat)
+    model:SetMaterial(getWindMat())
     model.castShadows = false
 
-    table.insert(State.trailNodes, {
-        node = trailNode,
+    table.insert(State.fxWindParticles, {
+        node = node,
         life = 0,
-        maxLife = 0.5 + math.random() * 0.3,
-        startScale = size,
+        maxLife = 0.3 + math.random() * 0.25,
+        startScale = s,
     })
 end
 
@@ -548,6 +634,26 @@ function Player.UpdateTrail(dt)
         local trail = State.trailNodes[idx]
         if trail.node then trail.node:Remove() end
         table.remove(State.trailNodes, idx)
+    end
+
+    -- 更新风粒子（白色小球从前方飞过，快速消失）
+    local windRemove = {}
+    for i, wp in ipairs(State.fxWindParticles) do
+        wp.life = wp.life + dt
+        if wp.life >= wp.maxLife or not wp.node then
+            table.insert(windRemove, i)
+        else
+            local t = wp.life / wp.maxLife
+            local s = wp.startScale * (1.0 - t * t)  -- 加速缩小
+            if s < 0.005 then s = 0.005 end
+            wp.node.scale = Vector3(s, s, s)
+        end
+    end
+    for i = #windRemove, 1, -1 do
+        local idx = windRemove[i]
+        local wp = State.fxWindParticles[idx]
+        if wp.node then wp.node:Remove() end
+        table.remove(State.fxWindParticles, idx)
     end
 end
 

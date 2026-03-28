@@ -18,6 +18,56 @@ Dayun.truckNode     = nil    -- 货车根节点
 Dayun.wheelNodes    = {}     -- 车轮节点（用于旋转动画）
 Dayun.flyingDebris  = {}     -- 撞飞碎片列表
 
+-- 速度特效内部状态
+Dayun.exhaustNodes  = {}     -- 排气火焰粒子列表
+Dayun.speedTrails   = {}     -- 速度拖尾粒子列表
+Dayun.exhaustTimer  = 0      -- 排气火焰生成计时
+Dayun.trailTimer    = 0      -- 速度拖尾生成计时
+Dayun.savedSpeed    = nil    -- 保存激活前的速度
+
+-- 排气火焰材质缓存
+local exhaustMats = {}
+local EXHAUST_COLORS = {
+    { diffuse = Color(1.0, 0.9, 0.3, 0.9),  emissive = Color(3.0, 2.5, 0.5) },    -- 黄白核心
+    { diffuse = Color(1.0, 0.5, 0.05, 0.85), emissive = Color(2.5, 1.0, 0.1) },    -- 橙色
+    { diffuse = Color(1.0, 0.2, 0.02, 0.75), emissive = Color(2.0, 0.3, 0.05) },   -- 红色
+    { diffuse = Color(0.4, 0.1, 0.01, 0.6),  emissive = Color(0.8, 0.2, 0.02) },   -- 深红/烟
+}
+
+-- 速度拖尾材质缓存
+local speedTrailMats = {}
+local SPEED_TRAIL_COLORS = {
+    { diffuse = Color(1.0, 0.7, 0.15, 0.85), emissive = Color(2.5, 1.5, 0.2) },   -- 金橙核心
+    { diffuse = Color(1.0, 0.4, 0.05, 0.7),  emissive = Color(2.0, 0.8, 0.1) },   -- 橙红
+    { diffuse = Color(0.9, 0.15, 0.02, 0.6), emissive = Color(1.5, 0.3, 0.05) },  -- 暗红
+}
+
+local function getExhaustMat(idx)
+    if exhaustMats[idx] then return exhaustMats[idx] end
+    local c = EXHAUST_COLORS[idx]
+    local mat = Material:new()
+    mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
+    mat:SetShaderParameter("MatDiffColor", Variant(c.diffuse))
+    mat:SetShaderParameter("MatEmissiveColor", Variant(c.emissive))
+    mat:SetShaderParameter("Metallic", Variant(0.0))
+    mat:SetShaderParameter("Roughness", Variant(0.2))
+    exhaustMats[idx] = mat
+    return mat
+end
+
+local function getSpeedTrailMat(idx)
+    if speedTrailMats[idx] then return speedTrailMats[idx] end
+    local c = SPEED_TRAIL_COLORS[idx]
+    local mat = Material:new()
+    mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTextureAlpha.xml"))
+    mat:SetShaderParameter("MatDiffColor", Variant(c.diffuse))
+    mat:SetShaderParameter("MatEmissiveColor", Variant(c.emissive))
+    mat:SetShaderParameter("Metallic", Variant(0.0))
+    mat:SetShaderParameter("Roughness", Variant(0.15))
+    speedTrailMats[idx] = mat
+    return mat
+end
+
 -- ============================================================================
 -- 外部查询
 -- ============================================================================
@@ -328,6 +378,8 @@ function Dayun.Activate()
     Dayun.timer = Config.DAYUN_DURATION
     Dayun.notifyTimer = 2.5
     Dayun.smashCooldown = 0.0
+    Dayun.exhaustTimer = 0
+    Dayun.trailTimer = 0
 
     -- 创建货车模型 + 隐藏玩家
     Dayun.BuildTruck()
@@ -345,8 +397,20 @@ function Dayun.Activate()
     State.isInvincible = false
     State.invincibleTimer = 0
 
+    -- ======== 2 倍速 ========
+    Dayun.savedSpeed = State.runSpeed
+    State.runSpeed = State.runSpeed * Config.DAYUN_SPEED_MULTIPLIER
+
+    -- ======== 视觉特效状态 ========
+    State.fxFovTarget      = Config.DAYUN_FX_FOV          -- 55°
+    State.fxFlashTimer     = 0.2                           -- 短闪光
+    State.fxFlashColor     = {255, 180, 50}                -- 金橙闪光
+    State.fxSpeedLines     = true
+    State.fxSpeedLineColor = {255, 120, 30}                -- 橙色速度线
+    State.fxVignetteTarget = 0.3
+
     SFX.Play("car_horn.ogg", 0.9)
-    print("[Dayun] Activated! Duration: " .. Config.DAYUN_DURATION .. "s")
+    print("[Dayun] Activated! Duration: " .. Config.DAYUN_DURATION .. "s | Speed: " .. State.runSpeed)
 end
 
 function Dayun.Deactivate()
@@ -368,8 +432,23 @@ function Dayun.Deactivate()
     State.isInvincible = true
     State.invincibleTimer = Config.DAYUN_INVINCIBLE_AFTER
 
+    -- ======== 恢复速度 ========
+    if Dayun.savedSpeed then
+        -- 恢复为激活前的速度（但保留自然加速部分）
+        State.runSpeed = State.runSpeed / Config.DAYUN_SPEED_MULTIPLIER
+        Dayun.savedSpeed = nil
+    end
+
+    -- ======== 恢复视觉特效 ========
+    State.fxFovTarget      = Config.CANYON_FX_FOV_NORMAL  -- 45°
+    State.fxSpeedLines     = false
+    State.fxVignetteTarget = 0.0
+
+    -- 清理排气火焰和速度拖尾粒子
+    Dayun.ClearExhaustAndTrails()
+
     SFX.Play("car_horn.ogg", 0.6)
-    print("[Dayun] Deactivated! Invincible buffer: " .. Config.DAYUN_INVINCIBLE_AFTER .. "s")
+    print("[Dayun] Deactivated! Speed restored to: " .. State.runSpeed)
 end
 
 -- ============================================================================
@@ -504,6 +583,10 @@ function Dayun.Update(dt)
     -- 飞行碎片更新（无论大运是否激活都要更新，碎片可能在失效后仍在飞）
     Dayun.UpdateDebris(dt)
 
+    -- 更新排气火焰和速度拖尾粒子（即使失效后仍在飞的粒子也要更新）
+    Dayun.UpdateExhaustParticles(dt)
+    Dayun.UpdateSpeedTrails(dt)
+
     if State.isDayunActive then
         -- 倒计时
         Dayun.timer = Dayun.timer - dt
@@ -515,6 +598,10 @@ function Dayun.Update(dt)
                 wNode:Rotate(Quaternion(wheelRPM * dt, 0, 0))
             end
         end
+
+        -- ======== 排气火焰 + 速度拖尾生成 ========
+        Dayun.SpawnExhaustFlames()
+        Dayun.SpawnSpeedTrails()
 
         -- 最后 3 秒货车闪烁
         if Dayun.timer < 3.0 and Dayun.truckNode then
@@ -621,6 +708,160 @@ function Dayun.DrawCountdown(vg, w, h)
 end
 
 -- ============================================================================
+-- 排气火焰粒子（从两侧排气管顶部喷出）
+-- ============================================================================
+
+function Dayun.SpawnExhaustFlames()
+    Dayun.exhaustTimer = Dayun.exhaustTimer + 1
+
+    -- 每帧每根排气管喷 1~2 个火焰粒子
+    if Dayun.exhaustTimer % 2 ~= 0 then return end
+
+    local playerPos = State.playerNode.position
+    -- 两根排气管的世界坐标偏移（来自 BuildTruck：±2.95, 3.18, -0.4）
+    for _, sideX in ipairs({-2.95, 2.95}) do
+        local count = math.random(1, 2)
+        for _ = 1, count do
+            local colorIdx = math.random(1, #EXHAUST_COLORS)
+            local mat = getExhaustMat(colorIdx)
+
+            local node = State.scene:CreateChild("Exhaust")
+            -- 从排气管顶部喷出，带随机散布
+            node.position = Vector3(
+                playerPos.x + sideX + (math.random() - 0.5) * 0.3,
+                playerPos.y + 3.18 + math.random() * 0.5,
+                playerPos.z - 0.4 + (math.random() - 0.5) * 0.3
+            )
+            local size = (colorIdx <= 2)
+                and (0.15 + math.random() * 0.12)
+                or  (0.1 + math.random() * 0.15)
+            node.scale = Vector3(size, size, size)
+
+            local model = node:CreateComponent("StaticModel")
+            model:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+            model:SetMaterial(mat)
+            model.castShadows = false
+
+            table.insert(Dayun.exhaustNodes, {
+                node = node,
+                life = 0,
+                maxLife = 0.25 + math.random() * 0.2,
+                startScale = size,
+                velY = 2.0 + math.random() * 3.0,       -- 向上喷射
+                velX = (math.random() - 0.5) * 1.5,      -- 横向散开
+            })
+        end
+    end
+end
+
+function Dayun.UpdateExhaustParticles(dt)
+    local toRemove = {}
+    for i, p in ipairs(Dayun.exhaustNodes) do
+        p.life = p.life + dt
+        if p.life >= p.maxLife or not p.node then
+            table.insert(toRemove, i)
+        else
+            local t = p.life / p.maxLife
+            -- 向上飘散 + 横向扩散
+            local pos = p.node.position
+            pos.y = pos.y + p.velY * dt
+            pos.x = pos.x + p.velX * dt
+            p.node.position = pos
+            -- 先膨胀后缩小
+            local scaleMul = (t < 0.3) and (1.0 + t * 2.0) or (1.6 * (1.0 - t))
+            local s = math.max(0.01, p.startScale * scaleMul)
+            p.node.scale = Vector3(s, s, s)
+        end
+    end
+    for i = #toRemove, 1, -1 do
+        local idx = toRemove[i]
+        local p = Dayun.exhaustNodes[idx]
+        if p.node then p.node:Remove() end
+        table.remove(Dayun.exhaustNodes, idx)
+    end
+end
+
+-- ============================================================================
+-- 速度拖尾（从货厢尾部拖出橙红火焰轨迹）
+-- ============================================================================
+
+function Dayun.SpawnSpeedTrails()
+    Dayun.trailTimer = Dayun.trailTimer + 1
+
+    -- 每帧 2~3 个拖尾粒子
+    local count = 2
+    if Dayun.trailTimer % 3 == 0 then count = 3 end
+
+    local playerPos = State.playerNode.position
+    for _ = 1, count do
+        local colorIdx = math.random(1, #SPEED_TRAIL_COLORS)
+        local mat = getSpeedTrailMat(colorIdx)
+
+        local node = State.scene:CreateChild("SpeedTrail")
+        -- 从货厢尾部（z=-4.2）喷出
+        node.position = Vector3(
+            playerPos.x + (math.random() - 0.5) * 3.0,
+            playerPos.y + 0.5 + math.random() * 2.0,
+            playerPos.z - 4.2 - math.random() * 1.0
+        )
+        local size = (colorIdx == 1)
+            and (0.25 + math.random() * 0.15)
+            or  (0.18 + math.random() * 0.15)
+        node.scale = Vector3(size, size, size)
+
+        local model = node:CreateComponent("StaticModel")
+        model:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+        model:SetMaterial(mat)
+        model.castShadows = false
+
+        table.insert(Dayun.speedTrails, {
+            node = node,
+            life = 0,
+            maxLife = 0.35 + math.random() * 0.3,
+            startScale = size,
+        })
+    end
+end
+
+function Dayun.UpdateSpeedTrails(dt)
+    local toRemove = {}
+    for i, trail in ipairs(Dayun.speedTrails) do
+        trail.life = trail.life + dt
+        if trail.life >= trail.maxLife or not trail.node then
+            table.insert(toRemove, i)
+        else
+            local t = trail.life / trail.maxLife
+            local s = trail.startScale * (1.0 - t)
+            if s < 0.01 then s = 0.01 end
+            trail.node.scale = Vector3(s, s, s)
+        end
+    end
+    for i = #toRemove, 1, -1 do
+        local idx = toRemove[i]
+        local trail = Dayun.speedTrails[idx]
+        if trail.node then trail.node:Remove() end
+        table.remove(Dayun.speedTrails, idx)
+    end
+end
+
+-- ============================================================================
+-- 清理排气火焰 + 速度拖尾
+-- ============================================================================
+
+function Dayun.ClearExhaustAndTrails()
+    for _, p in ipairs(Dayun.exhaustNodes) do
+        if p.node then p.node:Remove() end
+    end
+    Dayun.exhaustNodes = {}
+    for _, t in ipairs(Dayun.speedTrails) do
+        if t.node then t.node:Remove() end
+    end
+    Dayun.speedTrails = {}
+    Dayun.exhaustTimer = 0
+    Dayun.trailTimer = 0
+end
+
+-- ============================================================================
 -- Reset / ClearAll（ItemManager 生命周期）
 -- ============================================================================
 
@@ -644,6 +885,10 @@ function Dayun.ClearAll()
     Dayun.timer         = 0.0
     Dayun.notifyTimer   = 0.0
     Dayun.smashCooldown = 0.0
+    Dayun.savedSpeed    = nil
+
+    -- 清理排气火焰 + 速度拖尾
+    Dayun.ClearExhaustAndTrails()
 end
 
 -- 自动注册到 ItemManager

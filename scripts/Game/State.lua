@@ -85,6 +85,19 @@ State.voidFallTimer = 0.0       -- 坠落计时器
 State.isDayunActive = false     -- 大运是否激活
 State.dayunTriggered = false    -- 本局是否已触发过（防重复）
 
+-- 视觉特效状态（峡谷飞跃 + 大运速度感）
+State.fxFovCurrent         = 45.0              -- 当前 FOV（平滑插值）
+State.fxFovTarget          = 45.0              -- 目标 FOV
+State.fxCamPullback        = 0.0               -- 当前相机后拉量
+State.fxFlashTimer         = 0.0               -- 起飞闪光计时
+State.fxFlashColor         = {180, 230, 255}   -- 闪光颜色（青白）
+State.fxSpeedLines         = false             -- 是否显示速度线
+State.fxSpeedLineIntensity = 0.0               -- 速度线强度 0~1
+State.fxSpeedLineColor     = {100, 200, 255}   -- 速度线颜色
+State.fxVignetteAlpha      = 0.0               -- 边缘暗角强度
+State.fxVignetteTarget     = 0.0               -- 边缘暗角目标值
+State.fxWindParticles      = {}                -- 风粒子列表（3D 白点）
+
 -- 动画相关
 State.playerRunAngle = 0.0
 State.swipeStartX = 0
@@ -158,6 +171,20 @@ function State.ClearAll()
     -- 大运重置
     State.isDayunActive = false
     State.dayunTriggered = false
+    -- 视觉特效重置
+    State.fxFovCurrent         = 45.0
+    State.fxFovTarget          = 45.0
+    State.fxCamPullback        = 0.0
+    State.fxFlashTimer         = 0.0
+    State.fxSpeedLines         = false
+    State.fxSpeedLineIntensity = 0.0
+    State.fxVignetteAlpha      = 0.0
+    State.fxVignetteTarget     = 0.0
+    -- 清理风粒子
+    for _, wp in ipairs(State.fxWindParticles) do
+        if wp.node then wp.node:Remove() end
+    end
+    State.fxWindParticles = {}
     -- 清理拖尾节点
     for _, trail in ipairs(State.trailNodes) do
         if trail.node then trail.node:Remove() end

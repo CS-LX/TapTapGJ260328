@@ -95,6 +95,17 @@ Config.DAYUN_SCORE_THRESHOLD  = 50000   -- 激活分数阈值
 Config.DAYUN_DURATION         = 10.0    -- 持续时间（秒）
 Config.DAYUN_INVINCIBLE_AFTER = 2.0     -- 失效后无敌缓冲（秒）
 
+-- 峡谷飞跃视觉特效
+Config.CANYON_FX_FOV_NORMAL     = 45.0   -- 正常 FOV
+Config.CANYON_FX_FOV_FLIGHT     = 65.0   -- 飞跃时 FOV（拉宽视野 = 速度感）
+Config.CANYON_FX_CAM_PULLBACK   = 4.0    -- 飞跃时相机额外后拉距离
+Config.CANYON_FX_FLASH_DURATION = 0.3    -- 起飞闪光持续时间
+
+-- 大运速度特效
+Config.DAYUN_SPEED_MULTIPLIER   = 2.0    -- 大运期间速度倍率
+Config.DAYUN_FX_FOV             = 55.0   -- 大运期间 FOV
+Config.DAYUN_FX_CAM_PULLBACK    = 2.0    -- 大运期间相机额外后拉
+
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 

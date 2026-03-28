@@ -187,6 +187,11 @@ function GameUI.DrawHUD(w, h)
     -- 道具 HUD（磁铁倒计时等，由各道具模块自行绘制）
     ItemManager.DrawHUD(vg, w, h)
 
+    -- ================================================================
+    -- 速度视觉特效（速度线 + 闪光 + 暗角）
+    -- ================================================================
+    GameUI.UpdateAndDrawSpeedFX(vg, w, h)
+
     -- 浮动得分弹出文字
     local camera = State.cameraNode:GetComponent("Camera")
     for _, popup in ipairs(State.scorePopups) do
@@ -293,6 +298,136 @@ function GameUI.DrawGameOver(w, h)
     nvgFontSize(vg, 22)
     nvgFillColor(vg, nvgRGBA(255, 255, 255, alpha))
     nvgText(vg, w/2, h/2 + 140, "点击或按空格重新开始")
+end
+
+-- ============================================================================
+-- 速度视觉特效系统（速度线 + 起飞闪光 + 边缘暗角）
+-- ============================================================================
+
+--- 统一入口：更新 + 绘制所有速度特效
+function GameUI.UpdateAndDrawSpeedFX(vg, w, h)
+    local dt = GetTime():GetTimeStep()
+
+    -- 速度线 intensity 平滑过渡
+    if State.fxSpeedLines then
+        State.fxSpeedLineIntensity = math.min(1.0, State.fxSpeedLineIntensity + dt * 3.0)
+    else
+        State.fxSpeedLineIntensity = math.max(0.0, State.fxSpeedLineIntensity - dt * 3.0)
+    end
+
+    -- 暗角平滑过渡
+    State.fxVignetteAlpha = State.fxVignetteAlpha + (State.fxVignetteTarget - State.fxVignetteAlpha) * 4.0 * dt
+
+    -- 闪光计时
+    if State.fxFlashTimer > 0 then
+        State.fxFlashTimer = State.fxFlashTimer - dt
+    end
+
+    -- 绘制各层
+    if State.fxSpeedLineIntensity > 0.01 then
+        GameUI.DrawSpeedLines(vg, w, h)
+    end
+    if State.fxFlashTimer > 0 then
+        GameUI.DrawLaunchFlash(vg, w, h)
+    end
+    if State.fxVignetteAlpha > 0.01 then
+        GameUI.DrawSpeedVignette(vg, w, h)
+    end
+end
+
+--- 速度线：从屏幕中心向四周放射的半透明线条
+function GameUI.DrawSpeedLines(vg, w, h)
+    local cx, cy = w * 0.5, h * 0.5
+    local intensity = State.fxSpeedLineIntensity
+    local color = State.fxSpeedLineColor
+    local elapsed = GetTime():GetElapsedTime()
+    local maxR = math.sqrt(cx * cx + cy * cy)
+    local count = math.floor(20 + intensity * 15)
+
+    nvgSave(vg)
+    for i = 1, count do
+        -- 每根线的角度（均匀分布 + 时间旋转 + 随机抖动）
+        local baseAngle = (i / count) * math.pi * 2
+        local angle = baseAngle + elapsed * 1.5 + math.sin(elapsed * 3.0 + i * 0.7) * 0.1
+
+        -- 线条从中间偏外开始，延伸到边缘（模拟速度隧道）
+        local innerFactor = 0.3 + (math.sin(elapsed * 2.0 + i) * 0.5 + 0.5) * 0.15
+        local outerFactor = 0.7 + (math.sin(elapsed * 1.5 + i * 1.3) * 0.5 + 0.5) * 0.3
+        local innerR = maxR * innerFactor
+        local outerR = maxR * outerFactor
+
+        local x1 = cx + math.cos(angle) * innerR
+        local y1 = cy + math.sin(angle) * innerR
+        local x2 = cx + math.cos(angle) * outerR
+        local y2 = cy + math.sin(angle) * outerR
+
+        -- alpha 随 intensity 和每根线的随机性变化
+        local lineAlpha = intensity * (0.3 + math.random() * 0.4)
+        local a = math.floor(lineAlpha * 255)
+
+        nvgBeginPath(vg)
+        nvgMoveTo(vg, x1, y1)
+        nvgLineTo(vg, x2, y2)
+        nvgStrokeColor(vg, nvgRGBA(color[1], color[2], color[3], a))
+        nvgStrokeWidth(vg, 1.0 + math.random() * 2.0)
+        nvgStroke(vg)
+    end
+    nvgRestore(vg)
+end
+
+--- 起飞闪光：触发峡谷跳跃瞬间的全屏青白色闪光
+function GameUI.DrawLaunchFlash(vg, w, h)
+    local t = State.fxFlashTimer / Config.CANYON_FX_FLASH_DURATION  -- 1→0
+    local alpha = math.floor(t * t * 200)  -- 二次衰减，前段很亮
+    if alpha <= 0 then return end
+
+    local c = State.fxFlashColor
+    nvgBeginPath(vg)
+    nvgRect(vg, 0, 0, w, h)
+    nvgFillColor(vg, nvgRGBA(c[1], c[2], c[3], alpha))
+    nvgFill(vg)
+end
+
+--- 边缘暗角：飞行/大运时屏幕四周变暗，营造隧道视觉聚焦
+function GameUI.DrawSpeedVignette(vg, w, h)
+    local alpha = State.fxVignetteAlpha
+    local edgeAlpha = math.floor(alpha * 180)
+    if edgeAlpha <= 0 then return end
+
+    local bandW = w * 0.18  -- 暗角带宽度
+    local bandH = h * 0.15
+
+    -- 左边缘
+    nvgBeginPath(vg)
+    nvgRect(vg, 0, 0, bandW, h)
+    local paintL = nvgLinearGradient(vg, 0, 0, bandW, 0,
+        nvgRGBA(0, 0, 0, edgeAlpha), nvgRGBA(0, 0, 0, 0))
+    nvgFillPaint(vg, paintL)
+    nvgFill(vg)
+
+    -- 右边缘
+    nvgBeginPath(vg)
+    nvgRect(vg, w - bandW, 0, bandW, h)
+    local paintR = nvgLinearGradient(vg, w, 0, w - bandW, 0,
+        nvgRGBA(0, 0, 0, edgeAlpha), nvgRGBA(0, 0, 0, 0))
+    nvgFillPaint(vg, paintR)
+    nvgFill(vg)
+
+    -- 上边缘
+    nvgBeginPath(vg)
+    nvgRect(vg, 0, 0, w, bandH)
+    local paintT = nvgLinearGradient(vg, 0, 0, 0, bandH,
+        nvgRGBA(0, 0, 0, edgeAlpha), nvgRGBA(0, 0, 0, 0))
+    nvgFillPaint(vg, paintT)
+    nvgFill(vg)
+
+    -- 下边缘
+    nvgBeginPath(vg)
+    nvgRect(vg, 0, h - bandH, w, bandH)
+    local paintB = nvgLinearGradient(vg, 0, h, 0, h - bandH,
+        nvgRGBA(0, 0, 0, edgeAlpha), nvgRGBA(0, 0, 0, 0))
+    nvgFillPaint(vg, paintB)
+    nvgFill(vg)
 end
 
 return GameUI
