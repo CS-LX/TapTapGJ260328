@@ -184,20 +184,24 @@ Config.HOLE_VISUALS = {
 -- 障碍物视觉配置（按场景索引）
 -- ============================================================================
 Config.OBSTACLE_VISUALS = {
-    { -- 1. Savanna: 泥砖/木质风格，暖棕色调
+    { -- 1. Savanna: 大蓝象贴图障碍
         block    = { color = Color(0.72, 0.45, 0.22, 1.0), m = 0.0, r = 0.80 },
-        blockAcc = { color = Color(0.55, 0.38, 0.15, 1.0), m = 0.0, r = 0.85 },  -- 木板顶盖
+        blockAcc = { color = Color(0.55, 0.38, 0.15, 1.0), m = 0.0, r = 0.85 },
+        blockTexture = "image/elephant.png",   -- Billboard 贴图
+        blockTextureAspect = 798 / 1112,       -- 宽高比
         lowBar   = { color = Color(0.58, 0.38, 0.18, 1.0), m = 0.0, r = 0.82 },
         highBar  = { color = Color(0.52, 0.42, 0.18, 1.0), m = 0.0, r = 0.78 },
         overhead = { color = Color(0.62, 0.45, 0.25, 1.0), m = 0.0, r = 0.88 },
         pillar   = { color = Color(0.48, 0.35, 0.20, 1.0), m = 0.0, r = 0.85 },
         oPillar  = { color = Color(0.55, 0.40, 0.22, 1.0), m = 0.0, r = 0.85 },
     },
-    { -- 2. Glacier: 冰晶风格，冰蓝色调 + 自发光
+    { -- 2. Glacier: 企鹅贴图障碍
         block    = { color = Color(0.50, 0.72, 0.90, 1.0), m = 0.30, r = 0.15,
                      emissive = Color(0.05, 0.12, 0.25) },
         blockAcc = { color = Color(0.65, 0.82, 0.95, 1.0), m = 0.40, r = 0.10,
-                     emissive = Color(0.08, 0.18, 0.35) },  -- 冰锥
+                     emissive = Color(0.08, 0.18, 0.35) },
+        blockTexture = "image/gugugaga.png",   -- Billboard 贴图
+        blockTextureAspect = 366 / 671,        -- 宽高比
         lowBar   = { color = Color(0.48, 0.68, 0.88, 1.0), m = 0.25, r = 0.20,
                      emissive = Color(0.03, 0.08, 0.18) },
         highBar  = { color = Color(0.55, 0.75, 0.92, 1.0), m = 0.20, r = 0.18 },

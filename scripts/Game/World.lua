@@ -184,6 +184,41 @@ end
 -- ============================================================================
 
 --- 给障碍物节点添加场景风格化装饰（子节点，自动随父节点删除）
+-- ============================================================================
+-- Billboard 贴图障碍物（场景1大蓝象、场景2企鹅）
+-- ============================================================================
+local blockTexCache = {}  -- 贴图材质缓存
+
+local function CreateBillboardBlock(parentNode, vis, height)
+    height = height or 2.5
+    local aspect = vis.blockTextureAspect or 1.0
+    local width  = height * aspect
+
+    local bbSet = parentNode:CreateComponent("BillboardSet")
+    bbSet.numBillboards = 1
+    bbSet.sorted = true
+    bbSet.faceCameraMode = FC_ROTATE_Y
+    bbSet.castShadows = true
+
+    -- 使用受光照材质（DiffAlpha）以支持投射阴影，提高亮度补偿光照衰减
+    local texPath = vis.blockTexture
+    if not blockTexCache[texPath] then
+        local mat = Material:new()
+        mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
+        mat:SetTexture(0, cache:GetResource("Texture2D", texPath))
+        mat:SetShaderParameter("MatDiffColor", Variant(Color(2.5, 2.5, 2.5, 1.0)))
+        blockTexCache[texPath] = mat
+    end
+    bbSet:SetMaterial(blockTexCache[texPath])
+
+    -- bb.size 是半尺寸
+    local bb = bbSet:GetBillboard(0)
+    bb.position = Vector3(0, 0, 0)
+    bb.size = Vector2(width * 0.5, height * 0.5)
+    bb.enabled = true
+    bbSet:Commit()
+end
+
 local function DecorateBlock(node, biomeIdx, vis)
     local psx, psy, psz = node.scale.x, node.scale.y, node.scale.z
 
@@ -323,13 +358,23 @@ function World.SpawnObstacle(zPos)
 
     if obsType == Config.OBS_BLOCK then
         obs.damage = 1
-        node.position = Vector3(lane * Config.LANE_WIDTH, 0.6, zPos)
-        node.scale = Vector3(1.8, 1.2, 0.8)
-        local model = node:CreateComponent("StaticModel")
-        model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        model:SetMaterial(Config.CreateObsMaterial(vis.block))
-        model.castShadows = true
-        DecorateBlock(node, State.biomeIndex, vis)
+        local useBillboard = vis.blockTexture ~= nil
+
+        if useBillboard then
+            -- Billboard 贴图障碍（大蓝象 / 企鹅）
+            local bbH = 2.5
+            node.position = Vector3(lane * Config.LANE_WIDTH, bbH * 0.5, zPos)
+            CreateBillboardBlock(node, vis, bbH)
+        else
+            -- 传统 Box 模型障碍
+            node.position = Vector3(lane * Config.LANE_WIDTH, 0.6, zPos)
+            node.scale = Vector3(1.8, 1.2, 0.8)
+            local model = node:CreateComponent("StaticModel")
+            model:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+            model:SetMaterial(Config.CreateObsMaterial(vis.block))
+            model.castShadows = true
+            DecorateBlock(node, State.biomeIndex, vis)
+        end
 
         if math.random() > 0.6 and #solidLanes >= 2 then
             local lane2 = lane
@@ -341,13 +386,21 @@ function World.SpawnObstacle(zPos)
             end
             if lane2 ~= lane then
                 local node2 = State.scene:CreateChild("Obstacle2")
-                node2.position = Vector3(lane2 * Config.LANE_WIDTH, 0.6, zPos)
-                node2.scale = Vector3(1.8, 1.2, 0.8)
-                local model2 = node2:CreateComponent("StaticModel")
-                model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-                model2:SetMaterial(Config.CreateObsMaterial(vis.block))
-                model2.castShadows = true
-                DecorateBlock(node2, State.biomeIndex, vis)
+
+                if useBillboard then
+                    local bbH = 2.5
+                    node2.position = Vector3(lane2 * Config.LANE_WIDTH, bbH * 0.5, zPos)
+                    CreateBillboardBlock(node2, vis, bbH)
+                else
+                    node2.position = Vector3(lane2 * Config.LANE_WIDTH, 0.6, zPos)
+                    node2.scale = Vector3(1.8, 1.2, 0.8)
+                    local model2 = node2:CreateComponent("StaticModel")
+                    model2:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    model2:SetMaterial(Config.CreateObsMaterial(vis.block))
+                    model2.castShadows = true
+                    DecorateBlock(node2, State.biomeIndex, vis)
+                end
+
                 obs.extraNode = node2
                 obs.lane2 = lane2
             end
