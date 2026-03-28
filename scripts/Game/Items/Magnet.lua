@@ -10,7 +10,7 @@ local Config      = require "Game.Config"
 local Magnet = {}
 
 -- 配置
-Magnet.INTERVAL   = 30.0   -- 出现间隔（米）
+Magnet.INTERVAL   = 60.0   -- 出现间隔（米），较稀有
 Magnet.HEIGHT     = 1.2    -- 浮空高度
 Magnet.SIZE       = 0.7    -- Billboard 尺寸
 Magnet.DURATION   = 8.0    -- 持续时间（秒）
@@ -73,10 +73,12 @@ function Magnet.Update(dt)
         end
     end
 
-    -- 生成新磁铁
-    while Magnet.nextZ < playerZ + Config.SPAWN_DISTANCE do
-        Magnet.Spawn(Magnet.nextZ)
-        Magnet.nextZ = Magnet.nextZ + Magnet.INTERVAL + math.random() * 15
+    -- 生成新磁铁（激活期间不生成）
+    if not Magnet.active then
+        while Magnet.nextZ < playerZ + Config.SPAWN_DISTANCE do
+            Magnet.Spawn(Magnet.nextZ)
+            Magnet.nextZ = Magnet.nextZ + Magnet.INTERVAL + math.random() * 20
+        end
     end
 
     -- 更新列表
