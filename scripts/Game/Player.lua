@@ -75,7 +75,8 @@ function Player.HandleMenuInput(dt)
 end
 
 function Player.HandlePlayingInput(dt)
-    -- 自动跳跃期间锁定变道输入
+    -- 虚空坠落或自动跳跃期间锁定输入
+    if State.isVoidFalling then return end
     if State.autoJumpInputLock > 0 then return end
 
     if input:GetKeyPress(KEY_A) or input:GetKeyPress(KEY_LEFT) then
@@ -115,7 +116,8 @@ end
 
 function Player.HandleTouchMove(eventType, eventData)
     if not State.isSwiping or State.gameState ~= Config.STATE_PLAYING then return end
-    -- 自动跳跃期间锁定触摸输入
+    -- 虚空坠落或自动跳跃期间锁定触摸输入
+    if State.isVoidFalling then return end
     if State.autoJumpInputLock > 0 then return end
 
     local x = eventData["X"]:GetInt()
@@ -258,6 +260,36 @@ function Player.Update(dt)
 
     local pos = State.playerNode.position
 
+    -- 判断玩家是否在峡谷上方（无地面）
+    local overCanyon = World.IsInCanyon(pos.z) and not State.isAutoJumping
+
+    -- 虚空坠落中：只做坠落物理和翻滚动画，不做其他逻辑
+    if State.isVoidFalling then
+        State.voidFallTimer = State.voidFallTimer + dt
+        -- 前进逐渐减速
+        local forwardSpeed = State.runSpeed * math.max(0, 1.0 - State.voidFallTimer * 0.8)
+        pos.z = pos.z + forwardSpeed * dt
+        State.distanceTraveled = pos.z
+        -- 重力坠落
+        State.playerVelocityY = State.playerVelocityY + Config.GRAVITY * dt
+        pos.y = pos.y + State.playerVelocityY * dt
+        -- 翻滚动画
+        State.playerNode.rotation = Quaternion(
+            State.voidFallTimer * 200,
+            0,
+            State.voidFallTimer * 120
+        )
+        State.playerNode.position = pos
+        Player.UpdateTrail(dt)
+        -- 坠落足够深 → 死亡
+        if pos.y < -20 then
+            State.isVoidFalling = false
+            State.voidFallTimer = 0
+            State.GameOver()
+        end
+        return
+    end
+
     -- 峡谷飞行时速度加成
     local speedMultiplier = State.isAutoJumping and Config.CANYON_SPEED_BOOST or 1.0
     pos.z = pos.z + State.runSpeed * speedMultiplier * dt
@@ -274,10 +306,29 @@ function Player.Update(dt)
         pos.y = pos.y + State.playerVelocityY * dt
         State.playerVelocityY = State.playerVelocityY + Config.GRAVITY * dt
         if pos.y <= 0 then
-            pos.y = 0
-            State.isJumping = false
-            State.playerVelocityY = 0
+            if overCanyon then
+                -- 峡谷上方无地面，进入虚空坠落
+                State.isVoidFalling = true
+                State.voidFallTimer = 0
+                State.isJumping = false
+                State.isSliding = false
+                State.slideTimer = 0
+                -- 保持当前下落速度继续坠落
+                print("[Canyon] Player fell into void!")
+            else
+                pos.y = 0
+                State.isJumping = false
+                State.playerVelocityY = 0
+            end
         end
+    elseif overCanyon then
+        -- 非跳跃状态走入峡谷（跑进去了）→ 开始坠落
+        State.isVoidFalling = true
+        State.voidFallTimer = 0
+        State.playerVelocityY = 0
+        State.isSliding = false
+        State.slideTimer = 0
+        print("[Canyon] Player walked into void!")
     end
 
     if State.isSliding then
