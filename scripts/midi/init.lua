@@ -83,7 +83,7 @@ end
 ---   onNoteOff      function  音符释放回调 (note, velocity, channel, noteName)
 ---   onTrackEnd     function  播放结束回调 ()
 ---   onTempoChange  function  速度变化回调 (bpm)
----@return MidiPlayer
+---@return table
 function Midi.createPlayer(scene, options)
     return MidiPlayer.new(scene, options)
 end

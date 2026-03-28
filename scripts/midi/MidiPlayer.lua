@@ -9,21 +9,33 @@ local MidiPlayer = {}
 MidiPlayer.__index = MidiPlayer
 
 ------------------------------------------------------------
--- 占位音频路径配置
--- 128 个 GM 标准音符 (C-1 ~ G9)，按 MIDI note number 索引
--- TODO: 替换为真实的单音采样文件
+-- 钢琴采样路径配置
+-- 采样分 Hard (强力度) 和 Soft (弱力度) 两层
+-- 命名: 小写音名 + #号 + 八度, 如 c#4.ogg, a3.ogg
+-- 路径: audio/Hard/<note>.ogg, audio/Soft/<note>.ogg
 ------------------------------------------------------------
 
---- 生成占位路径表 (note 0~127)
+local NOTE_NAMES_LOWER = { "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" }
+
+--- Velocity 分界线: >= 此值使用 Hard 采样, < 此值使用 Soft 采样
+local VELOCITY_THRESHOLD = 80
+
+--- 根据 MIDI note number 生成采样文件名 (不含目录)
+---@param noteNum integer  0-127
+---@return string  如 "c#4.ogg"
+local function noteToFileName(noteNum)
+    local octave = math.floor(noteNum / 12) - 1
+    local name   = NOTE_NAMES_LOWER[(noteNum % 12) + 1]
+    return string.format("%s%d.ogg", name, octave)
+end
+
+--- 生成路径表 (note 0~127)
+---@param layer string  "Hard" 或 "Soft"
 ---@return table<integer, string>
-local function buildDefaultNotePaths()
-    local NOTE_NAMES = { "C", "Cs", "D", "Ds", "E", "F", "Fs", "G", "Gs", "A", "As", "B" }
+local function buildNotePaths(layer)
     local paths = {}
     for i = 0, 127 do
-        local octave = math.floor(i / 12) - 1
-        local name   = NOTE_NAMES[(i % 12) + 1]
-        -- 占位路径格式: Sounds/Notes/<音名><八度>.ogg
-        paths[i] = string.format("Sounds/Notes/%s%d.ogg", name, octave)
+        paths[i] = string.format("audio/%s/%s", layer, noteToFileName(i))
     end
     return paths
 end
@@ -32,7 +44,6 @@ end
 ---@return table<integer, string>
 local function buildDefaultPercussionPaths()
     local paths = {}
-    -- GM 标准打击乐 note 35-81，全部用占位路径
     for i = 35, 81 do
         paths[i] = string.format("Sounds/Percussion/perc_%d.ogg", i)
     end
@@ -53,7 +64,7 @@ MidiPlayer.STATE_PAUSED   = "paused"
 --- 创建播放器实例
 ---@param scene      Scene     场景对象 (用于创建音频节点)
 ---@param options?   table     可选配置
----@return MidiPlayer
+---@return table
 function MidiPlayer.new(scene, options)
     options = options or {}
 
@@ -72,9 +83,11 @@ function MidiPlayer.new(scene, options)
     self.loop            = options.loop or false
     self.maxPolyphony     = options.maxPolyphony or 32   -- 最大同时发声数
 
-    -- 音频路径映射
-    self.notePaths       = options.notePaths or buildDefaultNotePaths()
+    -- 音频路径映射 (双层: Hard + Soft)
+    self.notePathsHard   = options.notePathsHard or buildNotePaths("Hard")
+    self.notePathsSoft   = options.notePathsSoft or buildNotePaths("Soft")
     self.percussionPaths = options.percussionPaths or buildDefaultPercussionPaths()
+    self.velocityThreshold = options.velocityThreshold or VELOCITY_THRESHOLD
 
     -- 音频节点池
     self.audioNode       = scene:CreateChild("MidiPlayerAudio")
@@ -280,13 +293,17 @@ function MidiPlayer:handleNoteOn(evt)
         self:removeOldestSource()
     end
 
-    -- 获取音频路径
+    -- 获取音频路径 (根据 velocity 选择 Hard/Soft 采样层)
     local soundPath
     if evt.channel == 10 then
         -- 打击乐通道
         soundPath = self.percussionPaths[evt.note]
     else
-        soundPath = self.notePaths[evt.note]
+        if evt.velocity >= self.velocityThreshold then
+            soundPath = self.notePathsHard[evt.note]
+        else
+            soundPath = self.notePathsSoft[evt.note]
+        end
     end
 
     if not soundPath then return end
@@ -411,15 +428,23 @@ end
 --- 设置单个音符的音频路径
 ---@param noteNumber integer  0-127
 ---@param path string  音频资源路径
-function MidiPlayer:setNotePath(noteNumber, path)
-    self.notePaths[noteNumber] = path
+---@param layer? string  "hard"/"soft"/"both"(默认)
+function MidiPlayer:setNotePath(noteNumber, path, layer)
+    layer = layer or "both"
+    if layer == "hard" or layer == "both" then
+        self.notePathsHard[noteNumber] = path
+    end
+    if layer == "soft" or layer == "both" then
+        self.notePathsSoft[noteNumber] = path
+    end
 end
 
 --- 批量设置音符音频路径
 ---@param paths table<integer, string>
-function MidiPlayer:setNotePaths(paths)
+---@param layer? string  "hard"/"soft"/"both"(默认)
+function MidiPlayer:setNotePaths(paths, layer)
     for note, path in pairs(paths) do
-        self.notePaths[note] = path
+        self:setNotePath(note, path, layer)
     end
 end
 

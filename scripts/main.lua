@@ -12,10 +12,14 @@ local World       = require "Game.World"
 local Camera      = require "Game.Camera"
 local GameUI      = require "Game.UI"
 local ItemManager = require "Game.Items.ItemManager"
+local MidiPlayer  = require "midi.MidiPlayer"
 
 -- 加载道具模块（触发自动注册）
 require "Game.Items.Heart"
 require "Game.Items.Magnet"
+
+-- BGM 播放器实例
+local bgmPlayer = nil
 
 -- ============================================================================
 -- 入口函数
@@ -40,6 +44,20 @@ function Start()
     Player.Create()
     World.CreateInitialGround()
 
+    -- 初始化 BGM 播放器
+    bgmPlayer = MidiPlayer.new(State.scene, {
+        volume = 0.7,
+        loop = true,
+        maxPolyphony = 32,
+    })
+    local ok, err = bgmPlayer:load("audio/BGM.midi.txt")
+    if ok then
+        bgmPlayer:play()
+        print("BGM: MIDI loaded, duration=" .. string.format("%.1f", bgmPlayer:getDuration()) .. "s")
+    else
+        print("BGM: Failed to load MIDI - " .. tostring(err))
+    end
+
     -- 订阅事件
     SubscribeToEvent("Update", "HandleUpdate")
     SubscribeToEvent(State.nvgCtx, "NanoVGRender", "HandleNanoVGRender")
@@ -51,6 +69,10 @@ function Start()
 end
 
 function Stop()
+    if bgmPlayer then
+        bgmPlayer:destroy()
+        bgmPlayer = nil
+    end
     if State.nvgCtx ~= nil then
         nvgDelete(State.nvgCtx)
         State.nvgCtx = nil
@@ -65,6 +87,11 @@ end
 ---@param eventData UpdateEventData
 function HandleUpdate(eventType, eventData)
     local dt = eventData["TimeStep"]:GetFloat()
+
+    -- BGM 每帧驱动
+    if bgmPlayer then
+        bgmPlayer:update(dt)
+    end
 
     if State.gameState == Config.STATE_MENU then
         Player.HandleMenuInput(dt)

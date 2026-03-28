@@ -350,7 +350,7 @@ end
 ---@return table|nil midi
 ---@return string|nil err
 function MidiParser.parseFile(filePath)
-    local file = File(filePath, FILE_READ)
+    local file = cache:GetFile(filePath)
     if not file or not file:IsOpen() then
         return nil, "Cannot open file: " .. tostring(filePath)
     end
