@@ -210,9 +210,11 @@ Config.OBSTACLE_VISUALS = {
         pillar   = { color = Color(0.65, 0.82, 0.95, 1.0), m = 0.35, r = 0.12 },
         oPillar  = { color = Color(0.55, 0.72, 0.88, 1.0), m = 0.30, r = 0.15 },
     },
-    { -- 3. Cliffs: 岩石/苔藓风格，灰绿色调
+    { -- 3. Cliffs: 熊大贴图障碍
         block    = { color = Color(0.52, 0.48, 0.40, 1.0), m = 0.0, r = 0.90 },
-        blockAcc = { color = Color(0.28, 0.48, 0.20, 1.0), m = 0.0, r = 0.85 },  -- 苔藓
+        blockAcc = { color = Color(0.28, 0.48, 0.20, 1.0), m = 0.0, r = 0.85 },
+        blockTexture = "image/bear.png",       -- Billboard 贴图
+        blockTextureAspect = 538 / 972,        -- 宽高比
         lowBar   = { color = Color(0.42, 0.30, 0.18, 1.0), m = 0.0, r = 0.86 },
         highBar  = { color = Color(0.50, 0.45, 0.38, 1.0), m = 0.0, r = 0.88 },
         overhead = { color = Color(0.45, 0.40, 0.35, 1.0), m = 0.0, r = 0.92 },
