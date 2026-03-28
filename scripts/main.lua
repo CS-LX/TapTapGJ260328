@@ -52,6 +52,7 @@ function Start()
     })
     local ok, err = bgmPlayer:load("audio/BGM.midi.txt")
     if ok then
+        bgmPlayer:setTracks({1, 4})  -- 只播放第1、4轨道
         bgmPlayer:play()
         print("BGM: MIDI loaded, duration=" .. string.format("%.1f", bgmPlayer:getDuration()) .. "s")
     else
@@ -91,6 +92,13 @@ function HandleUpdate(eventType, eventData)
     -- BGM 每帧驱动
     if bgmPlayer then
         bgmPlayer:update(dt)
+        -- DEBUG: 按 1~4 切换对应音轨
+        for i = 1, 4 do
+            if input:GetKeyPress(KEY_1 + i - 1) then
+                local on = bgmPlayer:toggleTrack(i)
+                print(string.format("Track %d: %s", i, on and "ON" or "OFF"))
+            end
+        end
     end
 
     if State.gameState == Config.STATE_MENU then

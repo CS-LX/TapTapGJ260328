@@ -94,9 +94,9 @@ function MidiPlayer.new(scene, options)
     self.sourcePool        = {}   -- 空闲 SoundSource 池
     self.activeSources     = {}   -- 活跃音源 { source, note, channel, gain }
     self.releasingSources  = {}   -- 正在淡出的音源 { source, gain }
-    self.fadeOutSpeed       = options.fadeOutSpeed or 15.0  -- gain 每秒衰减速度 (~70ms 淡出)
-    self.fadeInSpeed        = options.fadeInSpeed or 80.0   -- gain 每秒增长速度 (~12ms 淡入)
-    self.fadingInSources   = {}   -- 正在淡入的音源 { source, currentGain, targetGain }
+    self.fadeOutFactor      = options.fadeOutFactor or 0.85    -- 指数淡出因子 (每帧 gain *= factor, ~40帧衰减到静音)
+    self.fadeInFrames       = options.fadeInFrames or 3        -- 淡入帧数 (~50ms@60fps)
+    self.fadingInSources   = {}   -- 正在淡入的音源 { source, currentGain, targetGain, step }
 
     -- 预创建音源池
     for i = 1, self.maxPolyphony do
@@ -352,16 +352,18 @@ function MidiPlayer:handleNoteOn(evt)
 
     local targetGain = (evt.velocity / 127.0) * self.volume
 
-    -- 从极小音量开始播放，通过淡入消除起始瞬态爆音
-    local startGain = 0.001
-    source:Stop()
-    source:Play(sound, sound.frequency, startGain)
+    -- 以 gain=0 启动播放，避免首帧出现瞬态脉冲
+    -- 不调 Stop()：池中音源已停止，多余的 Stop() 可能触发引擎内部状态重置
+    source.gain = 0
+    source:Play(sound)
 
-    -- 注册淡入
+    -- 注册淡入：在 fadeInFrames 帧内线性爬升到 targetGain
+    local step = targetGain / math.max(self.fadeInFrames, 1)
     self.fadingInSources[#self.fadingInSources + 1] = {
         source      = source,
-        currentGain = startGain,
+        currentGain = 0,
         targetGain  = targetGain,
+        step        = step,
     }
 
     self.activeSources[#self.activeSources + 1] = {
@@ -402,8 +404,9 @@ function MidiPlayer:cleanupSources()
     for i = #self.activeSources, 1, -1 do
         local info = self.activeSources[i]
         if not info.source or not info.source:IsPlaying() then
-            -- 归还到池
+            -- 归还到池，重置 gain 防止残留增益污染下次播放
             if info.source then
+                info.source.gain = 0
                 self.sourcePool[#self.sourcePool + 1] = info.source
             end
             table.remove(self.activeSources, i)
@@ -432,6 +435,7 @@ function MidiPlayer:removeOldestSource()
             end
         end
         local old = table.remove(self.releasingSources, minIdx)
+        old.source.gain = 0
         old.source:Stop()
         self.sourcePool[#self.sourcePool + 1] = old.source
     end
@@ -440,6 +444,7 @@ end
 function MidiPlayer:stopAllSources()
     for _, info in ipairs(self.activeSources) do
         if info.source then
+            info.source.gain = 0
             info.source:Stop()
             self.sourcePool[#self.sourcePool + 1] = info.source
         end
@@ -448,6 +453,7 @@ function MidiPlayer:stopAllSources()
     -- 清理淡出列表
     for _, info in ipairs(self.releasingSources) do
         if info.source then
+            info.source.gain = 0
             info.source:Stop()
             self.sourcePool[#self.sourcePool + 1] = info.source
         end
@@ -457,14 +463,14 @@ function MidiPlayer:stopAllSources()
     self.fadingInSources = {}
 end
 
---- 处理淡入中的音源（每帧调用）
+--- 处理淡入中的音源（每帧调用，按预计算 step 步进）
 ---@param dt number
 function MidiPlayer:fadeFadeInSources(dt)
     for i = #self.fadingInSources, 1, -1 do
         local info = self.fadingInSources[i]
-        info.currentGain = info.currentGain + self.fadeInSpeed * dt
+        info.currentGain = info.currentGain + info.step
         if info.currentGain >= info.targetGain then
-            -- 淡入完毕，设为目标增益
+            -- 淡入完毕
             info.source.gain = info.targetGain
             table.remove(self.fadingInSources, i)
         else
@@ -473,14 +479,17 @@ function MidiPlayer:fadeFadeInSources(dt)
     end
 end
 
---- 处理淡出中的音源（每帧调用）
+--- 处理淡出中的音源（每帧调用，指数衰减：gain *= factor）
+--- 指数曲线保证低增益段衰减更慢，避免在接近零时产生硬切
 ---@param dt number
 function MidiPlayer:fadeReleasingSources(dt)
+    local factor = self.fadeOutFactor
     for i = #self.releasingSources, 1, -1 do
         local info = self.releasingSources[i]
-        info.gain = info.gain - self.fadeOutSpeed * dt
-        if info.gain <= 0.005 then
-            -- 淡出完毕，停止并归还到池
+        info.gain = info.gain * factor
+        if info.gain <= 0.001 then
+            -- 增益足够小，安全停止并归还到池
+            info.source.gain = 0
             info.source:Stop()
             self.sourcePool[#self.sourcePool + 1] = info.source
             table.remove(self.releasingSources, i)
