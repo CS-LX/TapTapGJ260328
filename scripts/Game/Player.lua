@@ -6,6 +6,8 @@ local Config      = require "Game.Config"
 local State       = require "Game.State"
 local ItemManager = require "Game.Items.ItemManager"
 local BGM         = require "Game.BGM"
+local Traffic     = require "Game.World.Traffic"
+local Buildings   = require "Game.World.Buildings"
 
 local Player = {}
 
@@ -261,6 +263,18 @@ function Player.Update(dt)
                 -- 强制回中间跑道
                 State.currentLane = 0
                 State.targetLaneX = 0
+                -- ======== 场景切换时刻：清除旧场景装饰物 ========
+                -- 清除障碍物
+                for _, obs in ipairs(State.obstacles) do
+                    if obs.node then obs.node:Remove() end
+                    if obs.extraNode then obs.extraNode:Remove() end
+                end
+                State.obstacles = {}
+                -- 清除车流和建筑
+                Traffic.ClearAll()
+                Buildings.ClearAll()
+                print("[Canyon] Scene switch: cleared obstacles, traffic, buildings")
+
                 -- 飞跃沟壑时推进 BGM 阶段
                 local newStage = 4 - math.min(State.biomeChangeCount, 3)
                 BGM.SetStage(newStage)

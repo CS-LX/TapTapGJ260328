@@ -56,12 +56,12 @@ Config.CANYON_INPUT_LOCK     = 0.3        -- 自动跳跃时锁定变道（秒�
 Config.CANYON_SPEED_BOOST    = 2.5        -- 峡谷飞行速度倍率
 
 Config.BIOMES = {
-    {   -- 城市（默认灰色调）
+    {   -- 城市人行道（淡黄橙色调）
         name   = "City",
-        ground = Color(0.35, 0.35, 0.38, 1.0),
-        lane   = Color(0.9,  0.9,  0.3,  1.0),
+        ground = Color(0.88, 0.78, 0.55, 1.0),   -- 淡黄橙色人行道
+        lane   = Color(0.65, 0.61, 0.56, 1.0),   -- 低调的砖缝色
         wall   = Color(0.55, 0.4,  0.35, 1.0),
-        fog    = Color(0.6,  0.75, 0.95),
+        fog    = Color(0.70, 0.75, 0.85),          -- 城市灰蓝雾
     },
     {   -- 沙漠（暖沙色调）
         name   = "Desert",
@@ -91,6 +91,57 @@ Config.HOLE_CONFIGS = {
 
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
+
+-- ============================================================================
+-- 城市人行道专属装饰配置
+-- ============================================================================
+Config.CITY_SIDEWALK = {
+    -- 车流（左侧马路）
+    CAR_LANES         = { -6.5, -8.5 },     -- 两条车道 X 坐标
+    ROAD_WIDTH        = 5.0,                 -- 马路宽度
+    CAR_SPEED_MIN     = 0.6,                 -- 车速 = 玩家速度 × 倍率
+    CAR_SPEED_MAX     = 0.9,
+    CAR_INTERVAL_MIN  = 8.0,                 -- 车间距（米）
+    CAR_INTERVAL_MAX  = 16.0,
+    CAR_SPAWN_AHEAD   = 120.0,              -- 前方生成距离
+    CAR_DESPAWN_BEHIND = 30.0,              -- 后方回收距离
+    MAX_ACTIVE_CARS   = 20,
+
+    -- 建筑（右侧房屋/商铺）
+    BUILDING_X_BASE    = 5.5,               -- 建筑左边缘紧贴右路缘
+    BUILDING_GAP       = 0.8,               -- 建筑间距（米）
+    BUILDING_SPAWN_AHEAD  = 120.0,
+    BUILDING_DESPAWN_BEHIND = 30.0,
+    MAX_ACTIVE_BUILDINGS = 30,
+
+    -- 颜色库
+    CAR_COLORS = {
+        Color(0.85, 0.15, 0.15, 1.0),  -- 红
+        Color(0.15, 0.45, 0.85, 1.0),  -- 蓝
+        Color(0.95, 0.95, 0.90, 1.0),  -- 白
+        Color(0.20, 0.20, 0.22, 1.0),  -- 黑
+        Color(0.75, 0.75, 0.70, 1.0),  -- 银
+        Color(0.90, 0.75, 0.20, 1.0),  -- 黄
+    },
+    BUILDING_COLORS = {
+        Color(0.85, 0.82, 0.75, 1.0),  -- 米白
+        Color(0.78, 0.72, 0.62, 1.0),  -- 暖灰
+        Color(0.70, 0.60, 0.50, 1.0),  -- 棕灰
+        Color(0.90, 0.85, 0.78, 1.0),  -- 奶白
+        Color(0.65, 0.62, 0.58, 1.0),  -- 水泥灰
+        Color(0.82, 0.70, 0.55, 1.0),  -- 土黄
+    },
+    AWNING_COLORS = {
+        Color(0.85, 0.25, 0.20, 1.0),  -- 红
+        Color(0.20, 0.55, 0.30, 1.0),  -- 绿
+        Color(0.20, 0.35, 0.75, 1.0),  -- 蓝
+        Color(0.90, 0.60, 0.15, 1.0),  -- 橙
+    },
+
+    -- 马路/路缘颜色
+    ROAD_COLOR = Color(0.25, 0.25, 0.28, 1.0),  -- 柏油路
+    CURB_COLOR = Color(0.70, 0.68, 0.65, 1.0),  -- 路缘石
+}
 
 -- 工具函数：创建 PBR 材质
 function Config.CreatePBRMaterial(color, metallic, roughness)

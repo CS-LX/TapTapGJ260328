@@ -90,6 +90,12 @@ State.isSwiping = false
 -- BGM 按钮区域（用于菜单触摸检测）
 State.bgmBtnRect = nil  -- { x, y, w, h }
 
+-- 城市装饰（车流/建筑）
+State.trafficCars = {}         -- 活跃车辆列表
+State.buildings = {}           -- 活跃建筑列表
+State.nextCarZ = 30.0          -- 下一辆车生成 Z
+State.nextBuildingZ = 5.0      -- 下一栋建筑生成 Z
+
 -- ============================================================================
 -- 状态管理函数
 -- ============================================================================
@@ -110,10 +116,25 @@ function State.ClearAll()
     for _, seg in ipairs(State.groundSegments) do
         if seg.node then seg.node:Remove() end
     end
+    -- 清理车流
+    for _, car in ipairs(State.trafficCars) do
+        if car.node then car.node:Remove() end
+    end
+    State.trafficCars = {}
+    State.nextCarZ = 30.0
+
+    -- 清理建筑
+    for _, b in ipairs(State.buildings) do
+        if b.node then b.node:Remove() end
+    end
+    State.buildings = {}
+    State.nextBuildingZ = 5.0
+
     local children = State.scene:GetChildren()
     for _, child in ipairs(children) do
         local name = child.name
-        if name == "LaneLine" or name == "Wall" or name == "Ground" or name == "Hole" then
+        if name == "LaneLine" or name == "Wall" or name == "Ground" or name == "Hole"
+            or name == "TrafficCar" or name == "Building" or name == "RoadSurface" or name == "Curb" then
             child:Remove()
         end
     end
