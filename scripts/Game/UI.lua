@@ -26,9 +26,15 @@ end
 
 -- 上一帧的游戏状态（用于检测状态切换）
 local prevGameState = Config.STATE_MENU
+local lastRenderTime = 0
 
 function GameUI.Render(eventType, eventData)
     if State.nvgCtx == nil then return end
+
+    local now = GetTime():GetElapsedTime()
+    local renderDt = now - lastRenderTime
+    if renderDt > 0.1 then renderDt = 0.016 end  -- 防止首帧/卡顿跳跃
+    lastRenderTime = now
 
     local g = GetGraphics()
     local physW = g:GetWidth()
@@ -46,9 +52,9 @@ function GameUI.Render(eventType, eventData)
     if State.gameState == Config.STATE_MENU then
         GameUI.DrawMenu(physW, physH)
     elseif State.gameState == Config.STATE_PLAYING then
-        GameUI.DrawHUD(physW, physH)
+        GameUI.DrawHUD(physW, physH, renderDt)
     elseif State.gameState == Config.STATE_DYING then
-        GameUI.DrawHUD(physW, physH)
+        GameUI.DrawHUD(physW, physH, renderDt)
         GameUI.DrawDeathEffect(physW, physH)
     elseif State.gameState == Config.STATE_GAMEOVER then
         GameUI.DrawGameOver(physW, physH)
@@ -73,6 +79,10 @@ local MENU_SLOGANS = {
 }
 -- 主菜单火花粒子
 local menuSparks = {}
+-- 扣血弹出效果
+local hitPopups = {}           -- { text, timer, duration, x, y }
+local heartShakeTimer = 0      -- 血条抖动计时
+
 -- 结算画面状态
 local gameOverAnimT = 0       -- 结算画面入场动画计时
 local scoreCountUp = 0         -- 分数滚动计数
@@ -425,11 +435,64 @@ function GameUI.DrawBGMButton(vg, w, h)
 end
 
 -- ============================================================================
+-- 扣血弹出效果
+-- ============================================================================
+
+--- 外部调用：触发扣血弹出
+function GameUI.TriggerHitPopup(damage)
+    heartShakeTimer = 0.5
+    table.insert(hitPopups, {
+        text = "-" .. damage .. " ❤️",
+        timer = 0,
+        duration = 1.2,
+    })
+end
+
+--- 更新并绘制扣血弹出
+local function UpdateAndDrawHitPopups(vg, w, h, dt)
+    -- 更新抖动计时
+    if heartShakeTimer > 0 then
+        heartShakeTimer = heartShakeTimer - dt
+        if heartShakeTimer < 0 then heartShakeTimer = 0 end
+    end
+
+    -- 绘制扣血弹出
+    nvgFontFace(vg, "sans")
+    nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+    for i = #hitPopups, 1, -1 do
+        local p = hitPopups[i]
+        p.timer = p.timer + dt
+        if p.timer >= p.duration then
+            table.remove(hitPopups, i)
+        else
+            local t = p.timer / p.duration
+            -- 弹出：先放大再缩小，向上飘
+            local scale = t < 0.15 and (t / 0.15 * 1.5) or (1.5 - (t - 0.15) * 0.6)
+            scale = math.max(scale, 0.8)
+            local offsetY = -t * 60
+            local alpha = t < 0.7 and 255 or math.floor(255 * (1.0 - (t - 0.7) / 0.3))
+
+            local px = 20
+            local py = 55 + offsetY
+
+            nvgFontSize(vg, 36 * scale)
+            -- 黑色描边
+            nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.6)))
+            nvgText(vg, px + 2, py + 2, p.text)
+            -- 红色主体
+            nvgFillColor(vg, nvgRGBA(255, 50, 50, alpha))
+            nvgText(vg, px, py, p.text)
+        end
+    end
+end
+
+-- ============================================================================
 -- 游戏 HUD
 -- ============================================================================
 
-function GameUI.DrawHUD(w, h)
+function GameUI.DrawHUD(w, h, dt)
     local vg = State.nvgCtx
+    dt = dt or 0.016
 
     nvgFontFace(vg, "sans")
 
@@ -447,7 +510,13 @@ function GameUI.DrawHUD(w, h)
     nvgFillColor(vg, nvgRGBA(0, 0, 0, 100))
     nvgFill(vg)
 
-    -- 爱心血条
+    -- 爱心血条（受击时抖动）
+    nvgSave(vg)
+    if heartShakeTimer > 0 then
+        local shakeX = math.sin(heartShakeTimer * 40) * heartShakeTimer * 15
+        local shakeY = math.cos(heartShakeTimer * 35) * heartShakeTimer * 8
+        nvgTranslate(vg, shakeX, shakeY)
+    end
     nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
     nvgFontSize(vg, 28)
     local heartStr = ""
@@ -459,6 +528,7 @@ function GameUI.DrawHUD(w, h)
         end
     end
     nvgText(vg, 20, 25, heartStr)
+    nvgRestore(vg)
 
     -- 得分
     nvgFontSize(vg, 24)
@@ -518,6 +588,9 @@ function GameUI.DrawHUD(w, h)
             nvgText(vg, sx, sy, popupText)
         end
     end
+
+    -- 扣血弹出
+    UpdateAndDrawHitPopups(vg, w, h, dt)
 end
 
 -- ============================================================================

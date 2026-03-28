@@ -5,6 +5,7 @@
 local Config    = require "Game.Config"
 local State     = require "Game.State"
 local SFX       = require "Game.SFX"
+local GameUI    = require "Game.UI"
 local Magnet    = require "Game.Items.Magnet"
 local Dayun     = require "Game.Items.Dayun"
 local Canyon    = require "Game.World.Canyon"
@@ -516,6 +517,7 @@ function World.UpdateObstacles(dt)
                         obs.hit = true
                         local damage = obs.damage or 1
                         State.health = State.health - damage
+                        GameUI.TriggerHitPopup(damage)
                         if State.health <= 0 then
                             State.health = 0
                             SFX.PlayRandom({
