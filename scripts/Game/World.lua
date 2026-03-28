@@ -608,6 +608,7 @@ function World.UpdateCoins(dt)
                     coin.collectOriginY = coinPos.y
                     State.coins = State.coins + 1
                     State.score = State.score + 50
+                    SFX.Play("coin_collect.ogg", 0.4)
 
                     table.insert(State.scorePopups, {
                         worldPos = Vector3(coinPos.x, coinPos.y, coinPos.z),
