@@ -215,8 +215,11 @@ function Player.StartGame()
     State.invincibleTimer = 0.0
     State.hitFlashAlpha = 0
 
-    -- 重新开始音效
-    SFX.Play("time_rewind.ogg", 0.8)
+    -- 失败后重来才播放时间倒流音效
+    if State.hasDied then
+        SFX.Play("time_rewind.ogg", 0.8)
+    end
+    State.hasDied = false
 
     -- 清除旧障碍物和金币
     State.ClearAll()

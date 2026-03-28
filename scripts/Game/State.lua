@@ -166,6 +166,7 @@ function State.ClearAll()
 end
 
 function State.GameOver()
+    State.hasDied = true
     State.gameState = Config.STATE_DYING
     State.deathTimer = 0.0
     State.deathVelY = 8.0

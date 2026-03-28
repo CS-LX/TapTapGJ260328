@@ -6,6 +6,7 @@ local ItemBase    = require "Game.Items.ItemBase"
 local ItemManager = require "Game.Items.ItemManager"
 local State       = require "Game.State"
 local Config      = require "Game.Config"
+local SFX         = require "Game.SFX"
 
 local Heart = {}
 
@@ -67,6 +68,7 @@ function Heart.Update(dt)
             return State.health < Config.MAX_HEALTH
         end,
         onCollect = function(item)
+            SFX.Play("wow_sparkle.ogg", 0.8)
             State.health = math.min(State.health + 1, Config.MAX_HEALTH)
             local p = item.node.position
             table.insert(State.scorePopups, {
