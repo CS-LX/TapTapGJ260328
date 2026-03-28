@@ -98,37 +98,65 @@ Config.DEATH_DURATION = 1.5
 Config.SCENERY = {
     SPAWN_AHEAD    = 120.0,
     DESPAWN_BEHIND = 30.0,
-    MAX_ACTIVE     = 40,
-    INTERVAL_MIN   = 6.0,
-    INTERVAL_MAX   = 14.0,
+    MAX_ACTIVE     = 80,
+    INTERVAL_MIN   = 4.0,
+    INTERVAL_MAX   = 8.0,
+
+    -- 侧边地形尺寸
+    SIDE_TERRAIN_WIDTH = 30.0,    -- 每侧地形宽度（米）
+    SIDE_TERRAIN_HILLS = 3,       -- 每段地形随机丘陵数量
 
     SAVANNA = {
+        TERRAIN_COLOR = Color(0.75, 0.65, 0.35, 1.0),  -- 侧边草地（比跑道略深）
+        HILL_COLOR    = Color(0.72, 0.62, 0.32, 1.0),  -- 丘陵色
+        HILL_GRASS    = Color(0.55, 0.58, 0.25, 1.0),  -- 丘陵上的绿草
         TRUNK_COLOR   = Color(0.45, 0.30, 0.15, 1.0),  -- 树干
+        TRUNK_DARK    = Color(0.35, 0.22, 0.10, 1.0),  -- 深色树干
         CANOPY_COLOR  = Color(0.35, 0.50, 0.20, 1.0),  -- 树冠
+        CANOPY_LIGHT  = Color(0.45, 0.58, 0.25, 1.0),  -- 浅色树冠
         ROCK_COLORS   = {
             Color(0.60, 0.50, 0.35, 1.0),
             Color(0.55, 0.45, 0.30, 1.0),
             Color(0.50, 0.42, 0.32, 1.0),
+            Color(0.58, 0.48, 0.33, 1.0),
         },
-        GRASS_COLOR   = Color(0.70, 0.65, 0.30, 1.0),  -- 高草
+        GRASS_COLORS  = {
+            Color(0.70, 0.65, 0.30, 1.0),
+            Color(0.65, 0.60, 0.28, 1.0),
+            Color(0.60, 0.55, 0.25, 1.0),
+        },
     },
     GLACIER = {
+        TERRAIN_COLOR = Color(0.85, 0.92, 0.97, 1.0),  -- 冰雪平原
+        RIDGE_COLOR   = Color(0.70, 0.82, 0.92, 1.0),  -- 冰脊
         ICE_COLORS = {
             Color(0.70, 0.85, 0.95, 1.0),
             Color(0.55, 0.75, 0.90, 1.0),
             Color(0.80, 0.90, 0.97, 1.0),
+            Color(0.60, 0.78, 0.92, 1.0),
         },
-        SNOW_COLOR = Color(0.92, 0.94, 0.96, 1.0),
+        ICE_EMISSIVE  = Color(0.08, 0.15, 0.30),       -- 冰体自发光
+        SNOW_COLOR    = Color(0.92, 0.94, 0.96, 1.0),
+        SNOW_SHADOW   = Color(0.78, 0.85, 0.92, 1.0),  -- 雪丘阴影面
     },
     CLIFFS = {
+        TERRAIN_COLOR     = Color(0.42, 0.52, 0.28, 1.0),  -- 森林泥土
+        HILL_COLOR        = Color(0.38, 0.45, 0.25, 1.0),  -- 丘陵
+        HILL_ROCK         = Color(0.48, 0.42, 0.35, 1.0),  -- 丘陵岩石面
         PINE_TRUNK_COLOR  = Color(0.35, 0.22, 0.12, 1.0),
         PINE_NEEDLE_COLOR = Color(0.15, 0.40, 0.15, 1.0),
+        PINE_DARK_COLOR   = Color(0.10, 0.30, 0.10, 1.0),  -- 深色针叶
         ROCK_COLORS = {
             Color(0.45, 0.40, 0.35, 1.0),
             Color(0.50, 0.45, 0.38, 1.0),
             Color(0.40, 0.38, 0.32, 1.0),
+            Color(0.55, 0.48, 0.40, 1.0),
         },
-        BUSH_COLOR  = Color(0.25, 0.50, 0.20, 1.0),
+        BUSH_COLORS = {
+            Color(0.25, 0.50, 0.20, 1.0),
+            Color(0.20, 0.45, 0.18, 1.0),
+            Color(0.30, 0.55, 0.22, 1.0),
+        },
     },
 }
 

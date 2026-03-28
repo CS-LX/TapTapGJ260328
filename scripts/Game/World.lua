@@ -91,20 +91,79 @@ function World.CreateGroundSegment(zPos, biome)
         lineModel:SetMaterial(lineMat)
     end
 
-    -- 左右围墙（自然风路堤/冰壁/岩壁）
+    -- 侧边地形条（两侧各 30m 宽）
+    local SC = Config.SCENERY
+    local sideW = SC.SIDE_TERRAIN_WIDTH
+    local halfTrack = Config.TRACK_WIDTH / 2
+    local biomeIdx = State.biomeIndex
+    local biomeColors = biomeIdx == 1 and SC.SAVANNA or (biomeIdx == 2 and SC.GLACIER or SC.CLIFFS)
+    local terrainColor = biomeColors.TERRAIN_COLOR
+
     for side = -1, 1, 2 do
-        local wallNode = State.scene:CreateChild("Wall")
-        wallNode.position = Vector3(side * (Config.TRACK_WIDTH / 2 + 0.25), 1.5, zPos)
-        wallNode.scale = Vector3(0.5, 3.0, Config.TRACK_LENGTH)
-        local wallModel = wallNode:CreateComponent("StaticModel")
-        wallModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-        local wallMat = Material:new()
-        wallMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-        wallMat:SetShaderParameter("MatDiffColor", Variant(biome.wall))
-        wallMat:SetShaderParameter("Metallic", Variant(0.0))
-        wallMat:SetShaderParameter("Roughness", Variant(0.85))
-        wallModel:SetMaterial(wallMat)
-        wallModel.castShadows = true
+        local sideX = side * (halfTrack + sideW / 2)
+        local sideNode = State.scene:CreateChild("SideTerrain")
+        sideNode.position = Vector3(sideX, -0.3, zPos)
+        sideNode.scale = Vector3(sideW, 0.5, Config.TRACK_LENGTH)
+        local sideModel = sideNode:CreateComponent("StaticModel")
+        sideModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+        sideModel:SetMaterial(Config.CreatePBRMaterial(terrainColor, 0.0, 0.95))
+
+        -- biome 特有地貌
+        local hillCount = SC.SIDE_TERRAIN_HILLS
+        for h = 1, hillCount do
+            local hz = zPos + (math.random() - 0.5) * Config.TRACK_LENGTH * 0.8
+            local hx = side * (halfTrack + 2.0 + math.random() * (sideW - 4.0))
+
+            if biomeIdx == 1 then
+                -- Savanna: 圆润小丘（扁平 Sphere）
+                local hillNode = State.scene:CreateChild("SideTerrain")
+                local hillR = 3.0 + math.random() * 5.0
+                local hillH = 0.5 + math.random() * 1.5
+                hillNode.position = Vector3(hx, hillH * 0.3, hz)
+                hillNode.scale = Vector3(hillR * 2, hillH, hillR * 1.5)
+                local hm = hillNode:CreateComponent("StaticModel")
+                hm:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+                hm:SetMaterial(Config.CreatePBRMaterial(
+                    math.random() > 0.5 and biomeColors.HILL_COLOR or biomeColors.HILL_GRASS,
+                    0.0, 0.92
+                ))
+
+            elseif biomeIdx == 2 then
+                -- Glacier: 冰脊（薄长 Box 微倾斜）
+                local ridgeNode = State.scene:CreateChild("SideTerrain")
+                local rLen = 4.0 + math.random() * 8.0
+                local rH = 0.3 + math.random() * 1.0
+                ridgeNode.position = Vector3(hx, rH * 0.4, hz)
+                ridgeNode.rotation = Quaternion(0, math.random() * 40 - 20, math.random() * 8 - 4)
+                ridgeNode.scale = Vector3(1.0 + math.random() * 1.5, rH, rLen)
+                local rm = ridgeNode:CreateComponent("StaticModel")
+                rm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                rm:SetMaterial(Config.CreatePBRMaterial(biomeColors.RIDGE_COLOR, 0.15, 0.2))
+
+            else
+                -- Cliffs: 起伏丘陵（大 Sphere + 岩石面 Box）
+                local hillNode = State.scene:CreateChild("SideTerrain")
+                local hillR = 3.0 + math.random() * 6.0
+                local hillH = 1.0 + math.random() * 3.0
+                hillNode.position = Vector3(hx, hillH * 0.25, hz)
+                hillNode.scale = Vector3(hillR * 2, hillH, hillR * 1.8)
+                local hm = hillNode:CreateComponent("StaticModel")
+                hm:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
+                hm:SetMaterial(Config.CreatePBRMaterial(biomeColors.HILL_COLOR, 0.0, 0.90))
+
+                -- 丘陵上的岩石露头
+                if math.random() > 0.4 then
+                    local rockNode = State.scene:CreateChild("SideTerrain")
+                    rockNode.position = Vector3(hx + (math.random() - 0.5) * 2, hillH * 0.6, hz + (math.random() - 0.5) * 3)
+                    rockNode.rotation = Quaternion(math.random() * 20, math.random() * 360, math.random() * 15)
+                    local rs = 0.8 + math.random() * 1.5
+                    rockNode.scale = Vector3(rs, rs * 0.7, rs * 0.9)
+                    local rrm = rockNode:CreateComponent("StaticModel")
+                    rrm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    rrm:SetMaterial(Config.CreatePBRMaterial(biomeColors.HILL_ROCK, 0.0, 0.88))
+                end
+            end
+        end
     end
 
     table.insert(State.groundSegments, { node = node, z = zPos })
@@ -506,8 +565,8 @@ function World.UpdateGround(dt)
     local children = State.scene:GetChildren()
     for _, child in ipairs(children) do
         local name = child.name
-        if (name == "LaneLine" or name == "Wall" or name == "CanyonMarker"
-            or name == "Scenery")
+        if (name == "LaneLine" or name == "CanyonMarker"
+            or name == "Scenery" or name == "SideTerrain")
             and child.position.z < playerZ - 50 - Config.TRACK_LENGTH then
             child:Remove()
         end

@@ -124,8 +124,8 @@ function State.ClearAll()
     local children = State.scene:GetChildren()
     for _, child in ipairs(children) do
         local name = child.name
-        if name == "LaneLine" or name == "Wall" or name == "Ground" or name == "Hole"
-            or name == "Scenery" then
+        if name == "LaneLine" or name == "Ground" or name == "Hole"
+            or name == "Scenery" or name == "SideTerrain" then
             child:Remove()
         end
     end
