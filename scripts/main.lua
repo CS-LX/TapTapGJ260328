@@ -12,6 +12,7 @@ local World       = require "Game.World"
 local Camera      = require "Game.Camera"
 local GameUI      = require "Game.UI"
 local ItemManager = require "Game.Items.ItemManager"
+local BGM         = require "Game.BGM"
 
 -- 加载道具模块（触发自动注册）
 require "Game.Items.Heart"
@@ -40,6 +41,20 @@ function Start()
     Player.Create()
     World.CreateInitialGround()
 
+    -- 初始化 BGM（4轨同时播放，默认静音，通过 BGM.SetStage 控制）
+    BGM.Init(State.scene, { volume = 0.7 })
+
+    -- 场景切换时递增音轨阶段
+    State.onBiomeChange = function(count)
+        local newStage = 4 - math.min(count, 3)  -- count=1→3, count=2→2, count=3→1
+        BGM.SetStage(newStage)
+    end
+
+    -- 重新开始时重置为第4阶段
+    State.onGameReset = function()
+        BGM.SetStage(4)
+    end
+
     -- 订阅事件
     SubscribeToEvent("Update", "HandleUpdate")
     SubscribeToEvent(State.nvgCtx, "NanoVGRender", "HandleNanoVGRender")
@@ -51,6 +66,7 @@ function Start()
 end
 
 function Stop()
+    BGM.Destroy()
     if State.nvgCtx ~= nil then
         nvgDelete(State.nvgCtx)
         State.nvgCtx = nil
@@ -65,6 +81,8 @@ end
 ---@param eventData UpdateEventData
 function HandleUpdate(eventType, eventData)
     local dt = eventData["TimeStep"]:GetFloat()
+
+    BGM.Update(dt)
 
     if State.gameState == Config.STATE_MENU then
         Player.HandleMenuInput(dt)
