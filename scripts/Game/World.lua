@@ -568,6 +568,31 @@ function World.SpawnObstacle(zPos)
                     cm.castShadows = false
                 end
 
+                -- 被砍掉的树枝窦子（径向突出的短圆柱，让滚动清晰可见）
+                local stumpData = {
+                    { angle = 0.4,   yOff = -0.3 },
+                    { angle = 1.8,   yOff =  0.2 },
+                    { angle = 3.5,   yOff = -0.1 },
+                    { angle = 4.9,   yOff =  0.35 },
+                    { angle = 2.2,   yOff = -0.4 },
+                }
+                for _, sd in ipairs(stumpData) do
+                    local stump = logBody:CreateChild("Stump")
+                    local sx = math.cos(sd.angle) * logRadius * 0.9
+                    local sz = math.sin(sd.angle) * logRadius * 0.9
+                    stump.position = Vector3(sx, sd.yOff * logLen, sz)
+                    -- 树枝窦子朝径向外伸出
+                    local outX = math.cos(sd.angle)
+                    local outZ = math.sin(sd.angle)
+                    stump.rotation = Quaternion(0, 0, -math.deg(sd.angle) + 90)
+                    stump.scale = Vector3(0.12, 0.25, 0.12)  -- 短粗圆柱
+                    local sm = stump:CreateComponent("StaticModel")
+                    sm:SetModel(cache:GetResource("Model", "Models/Cylinder.mdl"))
+                    sm:SetMaterial(Config.CreatePBRMaterial(
+                        Color(0.52, 0.32, 0.14, 1.0), 0.0, 0.88))
+                    sm.castShadows = false
+                end
+
                 -- 标记为滚木，用于弹跳+滚动动画
                 obs.isRollingLog = true
                 obs.logBaseY = logRadius + 0.1
@@ -597,15 +622,15 @@ function World.SpawnObstacle(zPos)
             obs.damage = 2
 
             if State.biomeIndex == 1 then
-                -- Savanna: 西部广告牌
+                -- Savanna: 西部广告牌（底部留足空间让玩家滑铲通过）
                 local barW = Config.TRACK_WIDTH * (barWidthRatio + 0.05)
-                node.position = Vector3(barOffsetX, 1.6, zPos)
+                node.position = Vector3(barOffsetX, 2.2, zPos)
 
                 -- 两根木柱
                 for side = -1, 1, 2 do
                     local post = node:CreateChild("Post")
-                    post.position = Vector3(side * barW * 0.42, -0.4, 0)
-                    post.scale = Vector3(0.2, 3.2, 0.2)
+                    post.position = Vector3(side * barW * 0.42, -0.8, 0)
+                    post.scale = Vector3(0.2, 3.8, 0.2)
                     local pm = post:CreateComponent("StaticModel")
                     pm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
                     pm:SetMaterial(Config.CreatePBRMaterial(
@@ -613,30 +638,60 @@ function World.SpawnObstacle(zPos)
                     pm.castShadows = true
                 end
 
-                -- 广告牌面板（Billboard 贴图）
-                local signNode = node:CreateChild("Sign")
-                signNode.position = Vector3(0, 0.4, 0)
+                -- 广告牌木板底板（实体）
+                local signW = barW * 0.8
+                local signH = signW * (768 / 1376)  -- 海报宽高比
+                local boardNode = node:CreateChild("Board")
+                boardNode.position = Vector3(0, 0.4, 0)
+                boardNode.scale = Vector3(signW, signH, 0.08)
+                local boardModel = boardNode:CreateComponent("StaticModel")
+                boardModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                boardModel:SetMaterial(Config.CreatePBRMaterial(
+                    Color(0.55, 0.35, 0.15, 1.0), 0.0, 0.85))
+                boardModel.castShadows = true
 
-                local bbSet = signNode:CreateComponent("BillboardSet")
+                -- 木板边框（深色木条）
+                local frameThick = 0.06
+                local frameDepth = 0.12
+                local frameOffsets = {
+                    { Vector3(0, signH * 0.5, 0),  Vector3(signW + frameThick * 2, frameThick, frameDepth) },  -- 上
+                    { Vector3(0, -signH * 0.5, 0), Vector3(signW + frameThick * 2, frameThick, frameDepth) },  -- 下
+                    { Vector3(-signW * 0.5, 0, 0), Vector3(frameThick, signH, frameDepth) },  -- 左
+                    { Vector3(signW * 0.5, 0, 0),  Vector3(frameThick, signH, frameDepth) },  -- 右
+                }
+                for _, fo in ipairs(frameOffsets) do
+                    local frame = node:CreateChild("Frame")
+                    frame.position = Vector3(fo[1].x, 0.4 + fo[1].y, fo[1].z)
+                    frame.scale = fo[2]
+                    local fm = frame:CreateComponent("StaticModel")
+                    fm:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
+                    fm:SetMaterial(Config.CreatePBRMaterial(
+                        Color(0.35, 0.20, 0.08, 1.0), 0.0, 0.90))
+                    fm.castShadows = true
+                end
+
+                -- 海报贴图（Billboard 贴在木板前面）
+                local posterNode = node:CreateChild("Poster")
+                posterNode.position = Vector3(0, 0.4, -0.05)  -- 略微前移，贴在木板正面
+
+                local bbSet = posterNode:CreateComponent("BillboardSet")
                 bbSet.numBillboards = 1
                 bbSet.sorted = true
-                bbSet.faceCameraMode = FC_NONE  -- 固定朝向，不随相机旋转
-                bbSet.castShadows = true
+                bbSet.faceCameraMode = FC_NONE
+                bbSet.castShadows = false
 
-                if not blockTexCache["billboard_ad"] then
+                if not blockTexCache["billboard_poster"] then
                     local mat = Material:new()
                     mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
-                    mat:SetTexture(0, cache:GetResource("Texture2D", "image/billboard_ad_20260328172929.png"))
+                    mat:SetTexture(0, cache:GetResource("Texture2D", "image/billboard_poster.png"))
                     mat:SetShaderParameter("MatDiffColor", Variant(Color(2.5, 2.5, 2.5, 1.0)))
-                    blockTexCache["billboard_ad"] = mat
+                    blockTexCache["billboard_poster"] = mat
                 end
-                bbSet:SetMaterial(blockTexCache["billboard_ad"])
+                bbSet:SetMaterial(blockTexCache["billboard_poster"])
 
-                local signW = barW * 0.8
-                local signH = signW * 0.5  -- 广告牌宽高比 2:1
                 local bb = bbSet:GetBillboard(0)
                 bb.position = Vector3(0, 0, 0)
-                bb.size = Vector2(signW * 0.5, signH * 0.5)
+                bb.size = Vector2(signW * 0.48, signH * 0.48)  -- 略小于木板，留出边框
                 bb.enabled = true
                 bbSet:Commit()
             else
@@ -720,18 +775,21 @@ function World.UpdateObstacles(dt)
         State.nextObstacleZ = State.nextObstacleZ + (Config.OBSTACLE_INTERVAL + math.random() * 8) * speedRatio
     end
 
-    -- 滚木弹跳+横向滚动动画
+    -- 滚木弹跳+横向滚动动画（基于距离，玩家到达时滚木正在上升）
     for _, obs in ipairs(State.obstacles) do
         if obs.isRollingLog and obs.node then
-            obs.logPhase = obs.logPhase + dt * 4.0  -- 弹跳频率
-            local bounce = math.abs(math.sin(obs.logPhase)) * 0.8  -- 弹跳幅度 0~0.8m
+            -- 基于与玩家的距离计算弹跳相位
+            -- distZ > 0 时障碍在玩家前方；distZ = 0 时玩家到达
+            -- 偏移 π*0.3 使得 distZ=0 时 sin 处于上升段（约 0.81，正在上升）
+            local distZ = obs.z - playerZ
+            local phase = distZ * 0.35 + math.pi * 0.3
+            local bounce = math.abs(math.sin(phase)) * 0.8
             local pos = obs.node.position
             obs.node.position = Vector3(pos.x, obs.logBaseY + bounce, pos.z)
-            -- 横向滚动：LogBody 子节点绕自身 Y 轴旋转（横躺后就是绕长度轴）
-            obs.logSpin = (obs.logSpin or 0) + dt * 180  -- 滚动速度
+            -- 横向滚动：累计旋转角度
+            obs.logSpin = (obs.logSpin or 0) + dt * 90
             local logBody = obs.node:GetChild("LogBody")
             if logBody then
-                -- 先横躺(Z轴90度)，再绕本地Y轴自转(滚动)
                 logBody.rotation = Quaternion(0, 0, 90) * Quaternion(obs.logSpin, Vector3.UP)
             end
         end
