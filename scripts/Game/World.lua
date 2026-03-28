@@ -38,16 +38,20 @@ function World.CreateScene()
     local zoneNode = State.scene:CreateChild("Zone")
     local zone = zoneNode:CreateComponent("Zone")
     zone.boundingBox = BoundingBox(Vector3(-1000, -1000, -1000), Vector3(1000, 1000, 1000))
-    zone.fogColor = Color(0.6, 0.75, 0.95)
+    local firstBiome = Config.BIOMES[1]
+    zone.fogColor = Color(firstBiome.fog.r, firstBiome.fog.g, firstBiome.fog.b)
     zone.fogStart = 80.0
     zone.fogEnd = 200.0
+    State.zoneComponent = zone
 end
 
 -- ============================================================================
 -- 地面
 -- ============================================================================
 
-function World.CreateGroundSegment(zPos)
+function World.CreateGroundSegment(zPos, biome)
+    biome = biome or Config.BIOMES[1]
+
     local node = State.scene:CreateChild("Ground")
     node.position = Vector3(0, -0.25, zPos)
     node.scale = Vector3(Config.TRACK_WIDTH, 0.5, Config.TRACK_LENGTH)
@@ -56,7 +60,7 @@ function World.CreateGroundSegment(zPos)
 
     local mat = Material:new()
     mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-    mat:SetShaderParameter("MatDiffColor", Variant(Color(0.35, 0.35, 0.38, 1.0)))
+    mat:SetShaderParameter("MatDiffColor", Variant(biome.ground))
     mat:SetShaderParameter("Metallic", Variant(0.0))
     mat:SetShaderParameter("Roughness", Variant(0.9))
     model:SetMaterial(mat)
@@ -70,7 +74,7 @@ function World.CreateGroundSegment(zPos)
         lineModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         local lineMat = Material:new()
         lineMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-        lineMat:SetShaderParameter("MatDiffColor", Variant(Color(0.9, 0.9, 0.3, 1.0)))
+        lineMat:SetShaderParameter("MatDiffColor", Variant(biome.lane))
         lineMat:SetShaderParameter("Metallic", Variant(0.0))
         lineMat:SetShaderParameter("Roughness", Variant(0.5))
         lineModel:SetMaterial(lineMat)
@@ -85,7 +89,7 @@ function World.CreateGroundSegment(zPos)
         wallModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
         local wallMat = Material:new()
         wallMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-        wallMat:SetShaderParameter("MatDiffColor", Variant(Color(0.55, 0.4, 0.35, 1.0)))
+        wallMat:SetShaderParameter("MatDiffColor", Variant(biome.wall))
         wallMat:SetShaderParameter("Metallic", Variant(0.0))
         wallMat:SetShaderParameter("Roughness", Variant(0.85))
         wallModel:SetMaterial(wallMat)
@@ -97,8 +101,10 @@ function World.CreateGroundSegment(zPos)
 end
 
 function World.CreateInitialGround()
+    local biome = Config.BIOMES[State.biomeIndex]
     for i = 0, 2 do
-        World.CreateGroundSegment(i * Config.TRACK_LENGTH)
+        World.CreateGroundSegment(i * Config.TRACK_LENGTH, biome)
+        State.segmentsInBiome = State.segmentsInBiome + 1
     end
 end
 
@@ -226,6 +232,7 @@ function World.UpdateObstacles(dt)
     local playerZ = State.playerNode.position.z
 
     while State.nextObstacleZ < playerZ + Config.SPAWN_DISTANCE do
+        State.nextObstacleZ = World.SkipCanyon(State.nextObstacleZ)
         World.SpawnObstacle(State.nextObstacleZ)
         State.nextObstacleZ = State.nextObstacleZ + Config.OBSTACLE_INTERVAL + math.random() * 8
     end
@@ -274,6 +281,7 @@ function World.UpdateCoins(dt)
     local playerX = State.playerNode.position.x
 
     while State.nextCoinZ < playerZ + Config.SPAWN_DISTANCE do
+        State.nextCoinZ = World.SkipCanyon(State.nextCoinZ)
         World.SpawnCoins(State.nextCoinZ)
         State.nextCoinZ = State.nextCoinZ + Config.COIN_INTERVAL + math.random() * 5
     end
@@ -366,14 +374,44 @@ end
 function World.UpdateGround(dt)
     local playerZ = State.playerNode.position.z
 
-    local lastSegZ = 0
+    -- 找到最远的地面段尾端
+    local lastSegEnd = 0
     for _, seg in ipairs(State.groundSegments) do
-        if seg.z > lastSegZ then lastSegZ = seg.z end
-    end
-    if playerZ + Config.TRACK_LENGTH > lastSegZ then
-        World.CreateGroundSegment(lastSegZ + Config.TRACK_LENGTH)
+        local segEnd = seg.z + Config.TRACK_LENGTH / 2
+        if segEnd > lastSegEnd then lastSegEnd = segEnd end
     end
 
+    -- 需要生成新段时
+    while playerZ + Config.TRACK_LENGTH > lastSegEnd do
+        -- 检查是否需要峡谷（当前场景段数已满）
+        if State.segmentsInBiome >= Config.BIOME_SEGMENT_COUNT then
+            -- 插入峡谷
+            local canyonStartZ = lastSegEnd
+            local canyonEndZ   = canyonStartZ + Config.CANYON_LENGTH
+            table.insert(State.canyons, { startZ = canyonStartZ, endZ = canyonEndZ })
+
+            -- 切换到下一个场景
+            State.biomeIndex = (State.biomeIndex % #Config.BIOMES) + 1
+            State.segmentsInBiome = 0
+
+            -- 设置雾色渐变目标
+            local nextBiome = Config.BIOMES[State.biomeIndex]
+            State.fogTargetColor = Color(nextBiome.fog.r, nextBiome.fog.g, nextBiome.fog.b)
+
+            -- 新段从峡谷后面开始
+            lastSegEnd = canyonEndZ
+            print("[Biome] Canyon at Z=" .. canyonStartZ .. ", switching to " .. nextBiome.name)
+        end
+
+        -- 生成新地面段
+        local biome = Config.BIOMES[State.biomeIndex]
+        local newSegZ = lastSegEnd + Config.TRACK_LENGTH / 2
+        World.CreateGroundSegment(newSegZ, biome)
+        State.segmentsInBiome = State.segmentsInBiome + 1
+        lastSegEnd = newSegZ + Config.TRACK_LENGTH / 2
+    end
+
+    -- 清理过远的地面段
     local toRemove = {}
     for i, seg in ipairs(State.groundSegments) do
         if seg.z + Config.TRACK_LENGTH < playerZ - 50 then
@@ -386,11 +424,21 @@ function World.UpdateGround(dt)
         if seg.node then seg.node:Remove() end
         table.remove(State.groundSegments, idx)
     end
+
+    -- 清理过远的跑道线和围墙
     local children = State.scene:GetChildren()
     for _, child in ipairs(children) do
         local name = child.name
-        if (name == "LaneLine" or name == "Wall") and child.position.z < playerZ - 50 - Config.TRACK_LENGTH then
+        if (name == "LaneLine" or name == "Wall" or name == "CanyonMarker")
+            and child.position.z < playerZ - 50 - Config.TRACK_LENGTH then
             child:Remove()
+        end
+    end
+
+    -- 清理过远的峡谷记录
+    for i = #State.canyons, 1, -1 do
+        if State.canyons[i].endZ < playerZ - 100 then
+            table.remove(State.canyons, i)
         end
     end
 end
@@ -413,6 +461,69 @@ function World.UpdateScorePopups(dt)
         if popup.timer >= popup.duration then
             table.remove(State.scorePopups, i)
         end
+    end
+end
+
+-- ============================================================================
+-- 峡谷工具函数
+-- ============================================================================
+
+--- 检查某个 Z 坐标是否在峡谷内
+function World.IsInCanyon(z)
+    for _, canyon in ipairs(State.canyons) do
+        if z >= canyon.startZ and z <= canyon.endZ then
+            return true
+        end
+    end
+    return false
+end
+
+--- 如果 z 落在峡谷内，跳过到峡谷后方；否则原样返回
+function World.SkipCanyon(z)
+    for _, canyon in ipairs(State.canyons) do
+        if z >= canyon.startZ - 5 and z <= canyon.endZ + 5 then
+            return canyon.endZ + 10
+        end
+    end
+    return z
+end
+
+--- 获取最近的前方峡谷信息（用于自动跳跃检测）
+function World.GetNextCanyon(playerZ)
+    local nearest = nil
+    for _, canyon in ipairs(State.canyons) do
+        if canyon.startZ > playerZ - 5 then
+            if nearest == nil or canyon.startZ < nearest.startZ then
+                nearest = canyon
+            end
+        end
+    end
+    return nearest
+end
+
+-- ============================================================================
+-- 雾色渐变更新
+-- ============================================================================
+
+function World.UpdateFogTransition(dt)
+    if State.zoneComponent == nil then return end
+
+    local speed = 1.5  -- 渐变速度
+    local cur = State.fogCurrentColor
+    local tgt = State.fogTargetColor
+
+    local dr = tgt.r - cur.r
+    local dg = tgt.g - cur.g
+    local db = tgt.b - cur.b
+
+    if math.abs(dr) > 0.001 or math.abs(dg) > 0.001 or math.abs(db) > 0.001 then
+        local t = math.min(speed * dt, 1.0)
+        State.fogCurrentColor = Color(
+            cur.r + dr * t,
+            cur.g + dg * t,
+            cur.b + db * t
+        )
+        State.zoneComponent.fogColor = State.fogCurrentColor
     end
 end
 

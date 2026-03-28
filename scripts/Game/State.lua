@@ -56,6 +56,17 @@ State.deathRotX = 0.0
 State.deathRotZ = 0.0
 State.deathFlashAlpha = 0
 
+-- 场景/峡谷相关
+State.biomeIndex = 1                    -- 当前场景索引 (1=City, 2=Desert, 3=Neon)
+State.segmentsInBiome = 0              -- 当前场景已生成的地面段数
+State.canyons = {}                      -- 活跃峡谷列表 { startZ, endZ }
+State.isAutoJumping = false             -- 是否在自动跳跃中
+State.autoJumpInputLock = 0.0           -- 自动跳跃输入锁定计时器
+---@type Zone
+State.zoneComponent = nil               -- Zone 组件引用（用于雾色渐变）
+State.fogCurrentColor = Color(0.6, 0.75, 0.95)  -- 当前雾色
+State.fogTargetColor  = Color(0.6, 0.75, 0.95)  -- 目标雾色
+
 -- 动画相关
 State.playerRunAngle = 0.0
 State.swipeStartX = 0
@@ -90,6 +101,16 @@ function State.ClearAll()
         end
     end
     State.groundSegments = {}
+
+    -- 重置场景/峡谷状态
+    State.biomeIndex = 1
+    State.segmentsInBiome = 0
+    State.canyons = {}
+    State.isAutoJumping = false
+    State.autoJumpInputLock = 0.0
+    local firstBiome = require("Game.Config").BIOMES[1]
+    State.fogCurrentColor = Color(firstBiome.fog.r, firstBiome.fog.g, firstBiome.fog.b)
+    State.fogTargetColor  = Color(firstBiome.fog.r, firstBiome.fog.g, firstBiome.fog.b)
 end
 
 function State.GameOver()

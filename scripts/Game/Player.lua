@@ -75,6 +75,9 @@ function Player.HandleMenuInput(dt)
 end
 
 function Player.HandlePlayingInput(dt)
+    -- 自动跳跃期间锁定变道输入
+    if State.autoJumpInputLock > 0 then return end
+
     if input:GetKeyPress(KEY_A) or input:GetKeyPress(KEY_LEFT) then
         Player.SwitchLane(-1)
     end
@@ -112,6 +115,8 @@ end
 
 function Player.HandleTouchMove(eventType, eventData)
     if not State.isSwiping or State.gameState ~= Config.STATE_PLAYING then return end
+    -- 自动跳跃期间锁定触摸输入
+    if State.autoJumpInputLock > 0 then return end
 
     local x = eventData["X"]:GetInt()
     local y = eventData["Y"]:GetInt()
@@ -214,6 +219,41 @@ end
 -- ============================================================================
 
 function Player.Update(dt)
+    local World = require "Game.World"
+
+    -- 自动跳跃输入锁定倒计时
+    if State.autoJumpInputLock > 0 then
+        State.autoJumpInputLock = State.autoJumpInputLock - dt
+    end
+
+    -- 峡谷自动跳跃检测
+    local playerZ = State.playerNode.position.z
+    if not State.isAutoJumping and not State.isJumping then
+        local canyon = World.GetNextCanyon(playerZ)
+        if canyon then
+            local distToCanyon = canyon.startZ - playerZ
+            if distToCanyon > 0 and distToCanyon < Config.CANYON_TRIGGER_OFFSET then
+                -- 触发自动跳跃
+                State.isJumping = true
+                State.isAutoJumping = true
+                State.playerVelocityY = Config.CANYON_JUMP_VELOCITY
+                State.autoJumpInputLock = Config.CANYON_INPUT_LOCK
+                -- 取消下蹲
+                State.isSliding = false
+                State.slideTimer = 0
+                -- 强制回中间跑道
+                State.currentLane = 0
+                State.targetLaneX = 0
+                print("[Canyon] Auto jump triggered!")
+            end
+        end
+    end
+
+    -- 自动跳跃落地后清除标记
+    if State.isAutoJumping and not State.isJumping then
+        State.isAutoJumping = false
+    end
+
     local pos = State.playerNode.position
 
     pos.z = pos.z + State.runSpeed * dt

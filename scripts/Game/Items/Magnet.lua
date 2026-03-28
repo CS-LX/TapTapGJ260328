@@ -74,8 +74,10 @@ function Magnet.Update(dt)
     end
 
     -- 生成新磁铁（激活期间不生成）
+    local World = require "Game.World"
     if not Magnet.active then
         while Magnet.nextZ < playerZ + Config.SPAWN_DISTANCE do
+            Magnet.nextZ = World.SkipCanyon(Magnet.nextZ)
             Magnet.Spawn(Magnet.nextZ)
             Magnet.nextZ = Magnet.nextZ + Magnet.INTERVAL + math.random() * 20
         end

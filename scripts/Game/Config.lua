@@ -46,6 +46,37 @@ Config.CAM_LOOK_AHEAD   = 8.0          -- 相机前瞻
 Config.MAX_HEALTH          = 3
 Config.INVINCIBLE_DURATION = 1.5
 
+-- 场景切换配置
+Config.BIOME_SEGMENT_COUNT  = 3          -- 每场景地面段数（3 × 200m = 600m）
+Config.CANYON_LENGTH         = 10.0       -- 峡谷间隙宽度（米）
+Config.CANYON_JUMP_VELOCITY  = 14.0       -- 峡谷自动跳跃速度（加强版）
+Config.CANYON_TRIGGER_OFFSET = 2.0        -- 峡谷前多远触发自动跳跃
+Config.CANYON_INPUT_LOCK     = 0.3        -- 自动跳跃时锁定变道（秒）
+
+Config.BIOMES = {
+    {   -- 城市（默认灰色调）
+        name   = "City",
+        ground = Color(0.35, 0.35, 0.38, 1.0),
+        lane   = Color(0.9,  0.9,  0.3,  1.0),
+        wall   = Color(0.55, 0.4,  0.35, 1.0),
+        fog    = Color(0.6,  0.75, 0.95),
+    },
+    {   -- 沙漠（暖沙色调）
+        name   = "Desert",
+        ground = Color(0.72, 0.55, 0.35, 1.0),
+        lane   = Color(0.95, 0.95, 0.85, 1.0),
+        wall   = Color(0.75, 0.35, 0.2,  1.0),
+        fog    = Color(0.9,  0.8,  0.55),
+    },
+    {   -- 霓虹（暗紫色调）
+        name   = "Neon",
+        ground = Color(0.12, 0.12, 0.18, 1.0),
+        lane   = Color(0.2,  0.9,  0.9,  1.0),
+        wall   = Color(0.5,  0.2,  0.6,  1.0),
+        fog    = Color(0.08, 0.06, 0.18),
+    },
+}
+
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 

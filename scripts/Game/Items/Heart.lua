@@ -48,7 +48,9 @@ function Heart.Update(dt)
     local playerX = State.playerNode.position.x
 
     -- 生成新心心（仅在血量未满时）
+    local World = require "Game.World"
     while Heart.nextZ < playerZ + Config.SPAWN_DISTANCE do
+        Heart.nextZ = World.SkipCanyon(Heart.nextZ)
         if State.health < Config.MAX_HEALTH then
             Heart.Spawn(Heart.nextZ)
         end
