@@ -10,7 +10,7 @@ local Config      = require "Game.Config"
 local Magnet = {}
 
 -- 配置
-Magnet.INTERVAL   = 60.0   -- 出现间隔（米），较稀有
+Magnet.INTERVAL   = 100.0  -- 出现间隔（米），稀有
 Magnet.HEIGHT     = 1.2    -- 浮空高度
 Magnet.SIZE       = 0.7    -- Billboard 尺寸
 Magnet.DURATION   = 8.0    -- 持续时间（秒）
@@ -22,8 +22,9 @@ Magnet.LIGHT_COLOR = Color(0.2, 0.4, 1.0)
 -- 状态
 Magnet.nodes  = {}
 Magnet.nextZ  = 40.0
-Magnet.active = false
-Magnet.timer  = 0.0
+Magnet.active   = false
+Magnet.timer    = 0.0
+Magnet.cooldown = 0.0       -- 效果结束后的生成冷却（秒）
 
 -- ============================================================================
 -- 外部查询接口
@@ -70,12 +71,19 @@ function Magnet.Update(dt)
         if Magnet.timer <= 0 then
             Magnet.active = false
             Magnet.timer = 0
+            -- 效果结束，启动随机冷却 5~20 秒
+            Magnet.cooldown = 5.0 + math.random() * 15.0
         end
     end
 
-    -- 生成新磁铁（激活期间不生成）
+    -- 冷却倒计时
+    if Magnet.cooldown > 0 then
+        Magnet.cooldown = Magnet.cooldown - dt
+    end
+
+    -- 生成新磁铁（激活期间和冷却期间都不生成）
     local World = require "Game.World"
-    if not Magnet.active then
+    if not Magnet.active and Magnet.cooldown <= 0 then
         while Magnet.nextZ < playerZ + Config.SPAWN_DISTANCE do
             Magnet.nextZ = World.SkipCanyon(Magnet.nextZ)
             Magnet.Spawn(Magnet.nextZ)
@@ -130,16 +138,18 @@ end
 -- ============================================================================
 
 function Magnet.Reset()
-    Magnet.nextZ  = 40.0
-    Magnet.active = false
-    Magnet.timer  = 0.0
+    Magnet.nextZ    = 40.0
+    Magnet.active   = false
+    Magnet.timer    = 0.0
+    Magnet.cooldown = 0.0
 end
 
 function Magnet.ClearAll()
     ItemBase.ClearItems(Magnet.nodes)
-    Magnet.nodes  = {}
-    Magnet.active = false
-    Magnet.timer  = 0.0
+    Magnet.nodes    = {}
+    Magnet.active   = false
+    Magnet.timer    = 0.0
+    Magnet.cooldown = 0.0
 end
 
 -- 自动注册
