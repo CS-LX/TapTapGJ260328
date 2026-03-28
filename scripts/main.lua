@@ -81,6 +81,14 @@ local nextObstacleZ_ = 30.0   -- 下一个障碍物Z位置
 local nextCoinZ_ = 15.0       -- 下一个金币Z位置
 local groundSegments_ = {}    -- 地面段
 
+-- 血量系统
+local maxHealth_ = 3           -- 最大血量（3颗心）
+local health_ = 3              -- 当前血量
+local isInvincible_ = false    -- 是否无敌（受击后短暂无敌）
+local invincibleTimer_ = 0.0   -- 无敌剩余时间
+local invincibleDuration_ = 1.5 -- 无敌持续时间
+local hitFlashAlpha_ = 0       -- 受击闪屏透明度
+
 -- 死亡动画相关
 local deathTimer_ = 0.0        -- 死亡动画计时
 local deathDuration_ = 1.5     -- 死亡动画时长
@@ -311,7 +319,8 @@ function SpawnObstacle(zPos)
     local obs = { node = node, z = zPos, obsType = obsType, lane = lane }
 
     if obsType == OBS_BLOCK then
-        -- 路障：在某条跑道上放置障碍
+        -- 路障：在某条跑道上放置障碍（1颗心）
+        obs.damage = 1
         node.position = Vector3(lane * CONFIG.LANE_WIDTH, 0.6, zPos)
         node.scale = Vector3(1.8, 1.2, 0.8)
         local model = node:CreateComponent("StaticModel")
@@ -341,7 +350,8 @@ function SpawnObstacle(zPos)
         end
 
     elseif obsType == OBS_LOW_BAR then
-        -- 低横杆：跨越整个跑道
+        -- 低横杆：跨越整个跑道（2颗心）
+        obs.damage = 2
         node.position = Vector3(0, 0.4, zPos)
         node.scale = Vector3(CONFIG.TRACK_WIDTH * 0.8, 0.8, 0.3)
         local model = node:CreateComponent("StaticModel")
@@ -351,7 +361,8 @@ function SpawnObstacle(zPos)
         obs.lane = -99  -- 特殊标记：整行
 
     elseif obsType == OBS_HIGH_BAR then
-        -- 高横杆：需要下蹲通过
+        -- 高横杆：需要下蹲通过（3颗心）
+        obs.damage = 3
         node.position = Vector3(0, 1.3, zPos)
         node.scale = Vector3(CONFIG.TRACK_WIDTH * 0.8, 0.5, 0.3)
         local model = node:CreateComponent("StaticModel")
@@ -494,13 +505,18 @@ function StartGame()
     score_ = 0
     coins_ = 0
     playerRunAngle_ = 0.0
+    health_ = maxHealth_
+    isInvincible_ = false
+    invincibleTimer_ = 0.0
+    hitFlashAlpha_ = 0
 
     -- 清除旧障碍物和金币
     ClearAll()
 
-    -- 重置位置和旋转
+    -- 重置位置、旋转和可见性
     playerNode_.position = Vector3(0, 0, 0)
     playerNode_.rotation = Quaternion(0, 0, 0)
+    SetPlayerVisible(true)
     nextObstacleZ_ = 30.0
     nextCoinZ_ = 15.0
 
@@ -665,7 +681,33 @@ function UpdatePlayer(dt)
 
     playerNode_.position = pos
 
+    -- 无敌状态更新
+    if isInvincible_ then
+        invincibleTimer_ = invincibleTimer_ - dt
+        hitFlashAlpha_ = math.max(0, hitFlashAlpha_ - 200 * dt)
+        if invincibleTimer_ <= 0 then
+            isInvincible_ = false
+            invincibleTimer_ = 0
+            SetPlayerVisible(true)
+        else
+            -- 闪烁效果：每0.1秒切换可见性
+            local visible = math.floor(invincibleTimer_ * 10) % 2 == 0
+            SetPlayerVisible(visible)
+        end
+    end
+
     UpdatePlayerVisual(dt)
+end
+
+function SetPlayerVisible(visible)
+    local body = playerNode_:GetChild("Body")
+    local head = playerNode_:GetChild("Head")
+    local leftLeg = playerNode_:GetChild("LeftLeg")
+    local rightLeg = playerNode_:GetChild("RightLeg")
+    if body then body:SetEnabled(visible) end
+    if head then head:SetEnabled(visible) end
+    if leftLeg then leftLeg:SetEnabled(visible) end
+    if rightLeg then rightLeg:SetEnabled(visible) end
 end
 
 function UpdatePlayerVisual(dt)
@@ -735,11 +777,21 @@ function UpdateObstacles(dt)
         if obsZ < playerZ - CONFIG.DESPAWN_DISTANCE then
             table.insert(toRemove, i)
         else
-            if not obs.hit and math.abs(obsZ - playerZ) < 0.8 then
+            if not obs.hit and not isInvincible_ and math.abs(obsZ - playerZ) < 0.8 then
                 if CheckObstacleCollision(obs) then
                     obs.hit = true
-                    GameOver()
-                    return
+                    local damage = obs.damage or 1
+                    health_ = health_ - damage
+                    if health_ <= 0 then
+                        health_ = 0
+                        GameOver()
+                        return
+                    else
+                        -- 受击但未死：进入无敌状态
+                        isInvincible_ = true
+                        invincibleTimer_ = invincibleDuration_
+                        hitFlashAlpha_ = 180
+                    end
                 end
             end
         end
@@ -1072,23 +1124,43 @@ end
 function DrawHUD(w, h)
     nvgFontFace(nvgCtx_, "sans")
 
+    -- 受击红色闪屏
+    if hitFlashAlpha_ > 0 then
+        nvgBeginPath(nvgCtx_)
+        nvgRect(nvgCtx_, 0, 0, w, h)
+        nvgFillColor(nvgCtx_, nvgRGBA(200, 30, 20, math.floor(hitFlashAlpha_)))
+        nvgFill(nvgCtx_)
+    end
+
     -- 顶部状态栏背景
     nvgBeginPath(nvgCtx_)
-    nvgRect(nvgCtx_, 0, 0, w, 50)
+    nvgRect(nvgCtx_, 0, 0, w, 70)
     nvgFillColor(nvgCtx_, nvgRGBA(0, 0, 0, 100))
     nvgFill(nvgCtx_)
 
-    -- 得分
+    -- 爱心血条
     nvgTextAlign(nvgCtx_, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+    nvgFontSize(nvgCtx_, 28)
+    local heartStr = ""
+    for i = 1, maxHealth_ do
+        if i <= health_ then
+            heartStr = heartStr .. "❤️"
+        else
+            heartStr = heartStr .. "🖤"
+        end
+    end
+    nvgText(nvgCtx_, 20, 25, heartStr)
+
+    -- 得分
     nvgFontSize(nvgCtx_, 24)
     nvgFillColor(nvgCtx_, nvgRGBA(255, 255, 255, 230))
-    nvgText(nvgCtx_, 20, 25, "得分: " .. score_)
+    nvgText(nvgCtx_, 20, 55, "得分: " .. score_)
 
     -- 金币
     nvgTextAlign(nvgCtx_, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
     nvgFontSize(nvgCtx_, 22)
     nvgFillColor(nvgCtx_, nvgRGBA(255, 220, 50, 255))
-    nvgText(nvgCtx_, w/2, 25, "🪙 " .. coins_)
+    nvgText(nvgCtx_, w/2, 35, "🪙 " .. coins_)
 
     -- 速度
     nvgTextAlign(nvgCtx_, NVG_ALIGN_RIGHT + NVG_ALIGN_MIDDLE)
@@ -1099,7 +1171,7 @@ function DrawHUD(w, h)
     -- 距离
     nvgFontSize(nvgCtx_, 14)
     nvgFillColor(nvgCtx_, nvgRGBA(180, 180, 180, 180))
-    nvgText(nvgCtx_, w - 20, 45, string.format("%.0f m", distanceTraveled_))
+    nvgText(nvgCtx_, w - 20, 50, string.format("%.0f m", distanceTraveled_))
 
     -- 浮动得分弹出文字
     local camera = cameraNode_:GetComponent("Camera")
