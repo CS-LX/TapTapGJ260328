@@ -102,6 +102,9 @@ function MidiPlayer.new(scene, options)
         self.sourcePool[i] = src
     end
 
+    -- 轨道过滤: nil = 播放全部, 否则为 { [trackIndex]=true } 集合
+    self.enabledTracks   = nil
+
     -- 回调
     self.onNoteOn        = options.onNoteOn        -- function(note, velocity, channel)
     self.onNoteOff       = options.onNoteOff       -- function(note, velocity, channel)
@@ -249,6 +252,7 @@ function MidiPlayer:update(dt)
 
     -- 触发当前时间之前的所有事件
     local ticksPerBeat = self.midi.ticksPerBeat
+    local filter = self.enabledTracks  -- nil = 不过滤
     while self.eventIndex <= #self.allEvents do
         local item = self.allEvents[self.eventIndex]
         local evtTime = MidiParser.tickToSeconds(item.tick, ticksPerBeat, self.tempos)
@@ -257,7 +261,10 @@ function MidiPlayer:update(dt)
             break  -- 还没到这个事件的时间
         end
 
-        self:processEvent(item.event)
+        -- 轨道过滤: meta 事件(tempo等)始终处理, 音符事件按 enabledTracks 过滤
+        if not filter or filter[item.trackIndex] or item.event.type == "meta" then
+            self:processEvent(item.event)
+        end
         self.eventIndex = self.eventIndex + 1
     end
 
@@ -517,6 +524,141 @@ function MidiPlayer:destroy()
         self.audioNode:Remove()
         self.audioNode = nil
     end
+end
+
+------------------------------------------------------------
+-- 轨道选择
+------------------------------------------------------------
+
+--- 设置只播放指定轨道 (其余静音)
+--- 可传入单个轨道索引或索引数组，索引从 1 开始
+---@param tracks integer|integer[]  轨道索引，如 1 或 {1, 3}
+function MidiPlayer:setTracks(tracks)
+    if type(tracks) == "number" then
+        self.enabledTracks = { [tracks] = true }
+    elseif type(tracks) == "table" then
+        local set = {}
+        for _, idx in ipairs(tracks) do
+            set[idx] = true
+        end
+        self.enabledTracks = set
+    end
+end
+
+--- 启用单条轨道 (不影响其他已启用的轨道)
+---@param trackIndex integer  轨道索引 (1-based)
+function MidiPlayer:enableTrack(trackIndex)
+    if not self.enabledTracks then
+        -- 当前是"全部播放"，切换到显式模式：先填入所有轨道再操作
+        self.enabledTracks = self:_buildAllTracksSet()
+    end
+    self.enabledTracks[trackIndex] = true
+end
+
+--- 禁用单条轨道
+---@param trackIndex integer  轨道索引 (1-based)
+function MidiPlayer:disableTrack(trackIndex)
+    if not self.enabledTracks then
+        self.enabledTracks = self:_buildAllTracksSet()
+    end
+    self.enabledTracks[trackIndex] = nil
+end
+
+--- 切换单条轨道的启用/禁用状态
+---@param trackIndex integer
+---@return boolean enabled  切换后是否启用
+function MidiPlayer:toggleTrack(trackIndex)
+    if not self.enabledTracks then
+        self.enabledTracks = self:_buildAllTracksSet()
+    end
+    if self.enabledTracks[trackIndex] then
+        self.enabledTracks[trackIndex] = nil
+        return false
+    else
+        self.enabledTracks[trackIndex] = true
+        return true
+    end
+end
+
+--- 播放所有轨道 (清除过滤)
+function MidiPlayer:setAllTracks()
+    self.enabledTracks = nil
+end
+
+--- 独奏某条轨道 (只播放该轨道，其余全部静音)
+---@param trackIndex integer
+function MidiPlayer:soloTrack(trackIndex)
+    self.enabledTracks = { [trackIndex] = true }
+end
+
+--- 静音某条轨道 (禁用该轨道，其余保持不变)
+--- 与 disableTrack 相同，语义更清晰
+---@param trackIndex integer
+function MidiPlayer:muteTrack(trackIndex)
+    self:disableTrack(trackIndex)
+end
+
+--- 取消静音
+---@param trackIndex integer
+function MidiPlayer:unmuteTrack(trackIndex)
+    self:enableTrack(trackIndex)
+end
+
+--- 查询某条轨道是否启用
+---@param trackIndex integer
+---@return boolean
+function MidiPlayer:isTrackEnabled(trackIndex)
+    if not self.enabledTracks then return true end
+    return self.enabledTracks[trackIndex] == true
+end
+
+--- 获取当前已启用的轨道索引列表
+---@return integer[]
+function MidiPlayer:getEnabledTracks()
+    if not self.enabledTracks then
+        -- 全部启用
+        local result = {}
+        if self.midi then
+            for i = 1, self.midi.numTracks do
+                result[i] = i
+            end
+        end
+        return result
+    end
+    local result = {}
+    for idx in pairs(self.enabledTracks) do
+        result[#result + 1] = idx
+    end
+    table.sort(result)
+    return result
+end
+
+--- 获取所有轨道信息 (索引、名称、事件数)
+---@return table[]|nil  { index, name, eventCount, enabled }
+function MidiPlayer:getTrackList()
+    if not self.midi then return nil end
+    local list = {}
+    for i, track in ipairs(self.midi.tracks) do
+        list[i] = {
+            index      = i,
+            name       = track.name or string.format("Track %d", i),
+            eventCount = #track.events,
+            enabled    = self:isTrackEnabled(i),
+        }
+    end
+    return list
+end
+
+--- 内部: 构建包含所有轨道的 set
+---@return table<integer, boolean>
+function MidiPlayer:_buildAllTracksSet()
+    local set = {}
+    if self.midi then
+        for i = 1, self.midi.numTracks do
+            set[i] = true
+        end
+    end
+    return set
 end
 
 return MidiPlayer

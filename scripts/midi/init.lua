@@ -83,6 +83,19 @@ end
 ---   onNoteOff      function  音符释放回调 (note, velocity, channel, noteName)
 ---   onTrackEnd     function  播放结束回调 ()
 ---   onTempoChange  function  速度变化回调 (bpm)
+---
+--- 返回的 player 实例支持以下轨道控制方法:
+---   player:setTracks(tracks)       -- 设置播放轨道, 传 index 或 {index,...}
+---   player:setAllTracks()          -- 播放全部轨道
+---   player:enableTrack(index)      -- 启用某轨道
+---   player:disableTrack(index)     -- 禁用某轨道
+---   player:toggleTrack(index)      -- 切换启用/禁用
+---   player:soloTrack(index)        -- 独奏某轨道
+---   player:muteTrack(index)        -- 静音某轨道
+---   player:unmuteTrack(index)      -- 取消静音
+---   player:isTrackEnabled(index)   -- 查询是否启用
+---   player:getEnabledTracks()      -- 获取已启用轨道列表
+---   player:getTrackList()          -- 获取所有轨道信息
 ---@return table
 function Midi.createPlayer(scene, options)
     return MidiPlayer.new(scene, options)
