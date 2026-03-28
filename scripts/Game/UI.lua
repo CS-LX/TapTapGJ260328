@@ -5,6 +5,7 @@
 local Config      = require "Game.Config"
 local State       = require "Game.State"
 local ItemManager = require "Game.Items.ItemManager"
+local BGM         = require "Game.BGM"
 
 local GameUI = {}
 
@@ -95,6 +96,33 @@ function GameUI.DrawMenu(w, h)
         nvgFontSize(vg, 18)
         nvgFillColor(vg, nvgRGBA(255, 200, 100, 220))
         nvgText(vg, w/2, h/2 + 150, "最高分: " .. State.highScore)
+    end
+
+    -- BGM 开关按钮（右上角）
+    local btnW, btnH = 44, 44
+    local btnX = w - btnW - 16
+    local btnY = 16
+    State.bgmBtnRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+
+    -- 按钮背景
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, btnX, btnY, btnW, btnH, 8)
+    nvgFillColor(vg, nvgRGBA(255, 255, 255, 30))
+    nvgFill(vg)
+    nvgStrokeColor(vg, nvgRGBA(255, 255, 255, 80))
+    nvgStrokeWidth(vg, 1.5)
+    nvgStroke(vg)
+
+    -- 图标
+    nvgFontFace(vg, "sans")
+    nvgFontSize(vg, 24)
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    if BGM.IsMuted() then
+        nvgFillColor(vg, nvgRGBA(255, 100, 100, 200))
+        nvgText(vg, btnX + btnW / 2, btnY + btnH / 2, "🔇")
+    else
+        nvgFillColor(vg, nvgRGBA(255, 255, 255, 220))
+        nvgText(vg, btnX + btnW / 2, btnY + btnH / 2, "🔊")
     end
 end
 

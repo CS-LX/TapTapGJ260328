@@ -102,6 +102,20 @@ end
 
 function Player.HandleTouchBegin(eventType, eventData)
     if State.gameState == Config.STATE_MENU then
+        -- 检测 BGM 按钮点击
+        local tx = eventData["X"]:GetInt()
+        local ty = eventData["Y"]:GetInt()
+        local btn = State.bgmBtnRect
+        if btn then
+            print(string.format("[Touch] tx=%d ty=%d | btn x=%.0f y=%.0f w=%.0f h=%.0f | physW=%d physH=%d dpr=%.1f",
+                tx, ty, btn.x, btn.y, btn.w, btn.h,
+                GetGraphics():GetWidth(), GetGraphics():GetHeight(), GetGraphics():GetDPR()))
+        end
+        if btn and tx >= btn.x and tx <= btn.x + btn.w
+             and ty >= btn.y and ty <= btn.y + btn.h then
+            BGM.ToggleMute()
+            return
+        end
         Player.StartGame()
         return
     end

@@ -10,6 +10,7 @@ local nodes = {}
 local sources = {}
 
 local volume = 1.0       -- 全局音量
+local muted = false      -- 是否静音
 local stage = 0          -- 当前阶段 (0=全静音)
 local targetGains = { 0, 0, 0, 0 }  -- 各轨目标增益
 local currentGains = { 0, 0, 0, 0 }  -- 各轨当前增益（用于平滑过渡）
@@ -88,6 +89,17 @@ function BGM.SetVolume(v)
     volume = math.max(0, math.min(v, 1.0))
 end
 
+--- 切换静音状态
+function BGM.ToggleMute()
+    muted = not muted
+end
+
+--- 获取是否静音
+---@return boolean
+function BGM.IsMuted()
+    return muted
+end
+
 --- 每帧更新（平滑过渡增益 + 同步循环）
 ---@param dt number
 function BGM.Update(dt)
@@ -114,7 +126,7 @@ function BGM.Update(dt)
                 cur = math.max(cur - step, target)
             end
             currentGains[i] = cur
-            sources[i].gain = cur * volume
+            sources[i].gain = cur * volume * (muted and 0 or 1)
         end
     end
 end
