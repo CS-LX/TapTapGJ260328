@@ -2,8 +2,9 @@
 -- Game/Player.lua — 玩家创建、移动、输入、碰撞
 -- ============================================================================
 
-local Config = require "Game.Config"
-local State  = require "Game.State"
+local Config      = require "Game.Config"
+local State       = require "Game.State"
+local ItemManager = require "Game.Items.ItemManager"
 
 local Player = {}
 
@@ -192,6 +193,7 @@ function Player.StartGame()
 
     -- 清除旧障碍物和金币
     State.ClearAll()
+    ItemManager.ClearAll()
 
     -- 重置位置、旋转和可见性
     State.playerNode.position = Vector3(0, 0, 0)
@@ -199,10 +201,7 @@ function Player.StartGame()
     Player.SetVisible(true)
     State.nextObstacleZ = 30.0
     State.nextCoinZ = 15.0
-    State.nextHeartZ = 50.0
-    State.nextMagnetZ = 40.0
-    State.magnetActive = false
-    State.magnetTimer = 0.0
+    ItemManager.ResetAll()
 
     -- 重新生成地面
     World.CreateInitialGround()

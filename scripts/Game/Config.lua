@@ -46,17 +46,6 @@ Config.CAM_LOOK_AHEAD   = 8.0          -- 相机前瞻
 Config.MAX_HEALTH          = 3
 Config.INVINCIBLE_DURATION = 1.5
 
--- 心心道具配置
-Config.HEART_INTERVAL    = 40.0        -- 心心出现间隔（米），比较稀有
-Config.HEART_HEIGHT      = 1.2         -- 心心高度
-
--- 磁铁道具配置
-Config.MAGNET_INTERVAL   = 30.0        -- 磁铁出现间隔（米）
-Config.MAGNET_HEIGHT     = 1.2         -- 磁铁高度
-Config.MAGNET_DURATION   = 8.0         -- 磁铁持续时间（秒）
-Config.MAGNET_RANGE      = 8.0         -- 磁铁吸引范围（米）
-Config.MAGNET_PULL_SPEED = 18.0        -- 磁铁吸引速度（米/秒）
-
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 

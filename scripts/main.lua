@@ -5,12 +5,17 @@
 
 require "LuaScripts/Utilities/Sample"
 
-local Config = require "Game.Config"
-local State  = require "Game.State"
-local Player = require "Game.Player"
-local World  = require "Game.World"
-local Camera = require "Game.Camera"
-local GameUI = require "Game.UI"
+local Config      = require "Game.Config"
+local State       = require "Game.State"
+local Player      = require "Game.Player"
+local World       = require "Game.World"
+local Camera      = require "Game.Camera"
+local GameUI      = require "Game.UI"
+local ItemManager = require "Game.Items.ItemManager"
+
+-- 加载道具模块（触发自动注册）
+require "Game.Items.Heart"
+require "Game.Items.Magnet"
 
 -- ============================================================================
 -- 入口函数
@@ -69,8 +74,7 @@ function HandleUpdate(eventType, eventData)
         Player.Update(dt)
         World.UpdateObstacles(dt)
         World.UpdateCoins(dt)
-        World.UpdateMagnets(dt)
-        World.UpdateHearts(dt)
+        ItemManager.UpdateAll(dt)
         World.UpdateGround(dt)
         World.UpdateScore(dt)
         World.UpdateScorePopups(dt)

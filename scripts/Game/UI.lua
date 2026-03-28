@@ -2,8 +2,9 @@
 -- Game/UI.lua — NanoVG UI 渲染
 -- ============================================================================
 
-local Config = require "Game.Config"
-local State  = require "Game.State"
+local Config      = require "Game.Config"
+local State       = require "Game.State"
+local ItemManager = require "Game.Items.ItemManager"
 
 local GameUI = {}
 
@@ -155,19 +156,8 @@ function GameUI.DrawHUD(w, h)
     nvgFillColor(vg, nvgRGBA(180, 180, 180, 180))
     nvgText(vg, w - 20, 50, string.format("%.0f m", State.distanceTraveled))
 
-    -- 磁铁激活状态指示
-    if State.magnetActive then
-        local magnetAlpha = 255
-        -- 最后2秒闪烁提示即将结束
-        if State.magnetTimer < 2.0 then
-            magnetAlpha = math.floor(math.abs(math.sin(GetTime():GetElapsedTime() * 6)) * 255)
-        end
-        nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
-        nvgFontSize(vg, 20)
-        nvgFillColor(vg, nvgRGBA(80, 160, 255, magnetAlpha))
-        local remainText = string.format("🧲 %.1fs", State.magnetTimer)
-        nvgText(vg, w / 2 + 50, 35, remainText)
-    end
+    -- 道具 HUD（磁铁倒计时等，由各道具模块自行绘制）
+    ItemManager.DrawHUD(vg, w, h)
 
     -- 浮动得分弹出文字
     local camera = State.cameraNode:GetComponent("Camera")
@@ -191,14 +181,9 @@ function GameUI.DrawHUD(w, h)
             -- 阴影
             nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.5)))
             nvgText(vg, sx + 1, sy + 1, popupText)
-            -- 文字颜色：心心红色、磁铁蓝色、金币金色
-            if popup.text == "+❤️" then
-                nvgFillColor(vg, nvgRGBA(255, 80, 80, alpha))
-            elseif popup.text and popup.text:find("磁铁") then
-                nvgFillColor(vg, nvgRGBA(80, 160, 255, alpha))
-            else
-                nvgFillColor(vg, nvgRGBA(255, 230, 50, alpha))
-            end
+            -- 文字颜色：使用 popup.color 字段，默认金色
+            local pc = popup.color or { 255, 230, 50 }
+            nvgFillColor(vg, nvgRGBA(pc[1], pc[2], pc[3], alpha))
             nvgText(vg, sx, sy, popupText)
         end
     end
