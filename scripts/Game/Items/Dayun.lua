@@ -411,7 +411,7 @@ function Dayun.Activate()
     State.fxSpeedLineColor = {255, 120, 30}                -- 橙色速度线
     State.fxVignetteTarget = 0.3
 
-    SFX.Play("car_horn.ogg", 0.9)
+    SFX.Play("car_horn.ogg")
     print("[Dayun] Activated! Duration: " .. Config.DAYUN_DURATION .. "s | Speed: " .. State.runSpeed)
 end
 
@@ -449,7 +449,7 @@ function Dayun.Deactivate()
     -- 清理排气火焰和速度拖尾粒子
     Dayun.ClearExhaustAndTrails()
 
-    SFX.Play("car_horn.ogg", 0.6)
+    SFX.Play("car_horn.ogg")
     print("[Dayun] Deactivated! Speed restored to: " .. State.runSpeed)
 end
 
@@ -487,7 +487,7 @@ end
 function Dayun.SmashObstacle(obs)
     -- 音效（带冷却防叠音）
     if Dayun.smashCooldown <= 0 then
-        SFX.Play("rock_eyebrow_raise.ogg", 0.8)
+        SFX.Play("rock_eyebrow_raise.ogg")
         Dayun.smashCooldown = 0.4
     end
 

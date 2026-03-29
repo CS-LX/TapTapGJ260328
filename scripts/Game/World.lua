@@ -498,11 +498,11 @@ function World.UpdateObstacles(dt)
                 local playerLane = math.floor((State.playerNode.position.x / Config.LANE_WIDTH) + 0.5)
                 if playerLane == (obs.lane or 0) then
                     if obs.biome == 1 then
-                        SFX.Play("elephant.ogg", 0.5)
+                        SFX.Play("elephant.ogg")
                     elseif obs.biome == 2 then
-                        SFX.Play("gugugaga.ogg", 0.25)
+                        SFX.Play("gugugaga.ogg")
                     elseif obs.biome == 3 then
-                        SFX.Play("bear.ogg", 0.5)
+                        SFX.Play("bear.ogg")
                     end
                 end
             end
@@ -528,11 +528,11 @@ function World.UpdateObstacles(dt)
                                 "laugh_private_1.ogg",
                                 "laugh_private_2.ogg",
                                 "laugh_private_3.ogg",
-                            }, 0.9)
+                            })
                             State.GameOver()
                             return
                         else
-                            SFX.Play("thud.ogg", 0.7)
+                            SFX.Play("thud.ogg")
                             State.isInvincible = true
                             State.invincibleTimer = Config.INVINCIBLE_DURATION
                             State.hitFlashAlpha = 180
@@ -621,7 +621,7 @@ function World.UpdateCoins(dt)
                     coin.collectOriginY = coinPos.y
                     State.coins = State.coins + 1
                     State.score = State.score + 50
-                    SFX.Play("coin_collect.ogg", 0.2)
+                    SFX.Play("coin_collect.ogg", 0.5)
 
                     table.insert(State.scorePopups, {
                         worldPos = Vector3(coinPos.x, coinPos.y, coinPos.z),

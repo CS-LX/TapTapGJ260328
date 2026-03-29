@@ -180,7 +180,7 @@ function Player.SwitchLane(direction)
     if newLane >= -1 and newLane <= 1 then
         State.currentLane = newLane
         State.targetLaneX = State.currentLane * Config.LANE_WIDTH
-        SFX.Play("player_lane_switch.ogg", 0.25)
+        SFX.Play("player_lane_switch.ogg")
     end
 end
 
@@ -188,7 +188,7 @@ function Player.Jump()
     if not State.isJumping and not State.isSliding then
         State.isJumping = true
         State.playerVelocityY = Config.JUMP_VELOCITY
-        SFX.Play("throw.ogg", 0.6)
+        SFX.Play("throw.ogg")
     end
 end
 
@@ -196,7 +196,7 @@ function Player.Slide()
     if not State.isJumping and not State.isSliding then
         State.isSliding = true
         State.slideTimer = Config.SLIDE_DURATION
-        SFX.Play("player_slide.ogg", 0.35)
+        SFX.Play("player_slide.ogg")
     end
 end
 
@@ -226,7 +226,7 @@ function Player.StartGame()
 
     -- 失败后重来才播放时间倒流音效
     if State.hasDied then
-        SFX.Play("time_rewind.ogg", 0.8)
+        SFX.Play("time_rewind.ogg")
     end
     State.hasDied = false
 
@@ -307,7 +307,7 @@ function Player.Update(dt)
                 -- 飞跃沟壑时推进 BGM 阶段
                 local newStage = 4 - math.min(State.biomeChangeCount, 3)
                 BGM.SetStage(newStage)
-                SFX.Play("eagle_screech.ogg", 0.8)
+                SFX.Play("eagle_screech.ogg")
                 print("[Canyon] Auto jump triggered! BGM stage → " .. newStage)
             end
         end
@@ -350,7 +350,7 @@ function Player.Update(dt)
     if State.isVoidFalling then
         -- 坠落瞬间播放威廉尖叫
         if State.voidFallTimer == 0 then
-            SFX.Play("wilhelm_scream.ogg", 0.9)
+            SFX.Play("wilhelm_scream.ogg")
         end
         State.voidFallTimer = State.voidFallTimer + dt
         -- 前进逐渐减速

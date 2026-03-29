@@ -47,7 +47,7 @@ function Start()
     SFX.Init(State.scene)
 
     -- 初始化 BGM（4轨同时播放，默认阶段4，通过 BGM.SetStage 控制）
-    BGM.Init(State.scene, { volume = 0.7 })
+    BGM.Init(State.scene, { volume = 0.875 })
     BGM.SetStage(4)
 
     -- BGM 阶段推进移至 Player.lua 自动跳跃时触发（飞跃沟壑瞬间）
