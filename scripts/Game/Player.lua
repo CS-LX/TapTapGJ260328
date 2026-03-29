@@ -241,6 +241,10 @@ function Player.StartGame()
     State.playerNode.position = Vector3(0, 0, 0)
     State.playerNode.rotation = Quaternion(0, 0, 0)
     Player.SetVisible(true)
+
+    -- 立即重置相机到游戏跟随位置（避免从菜单位置慢慢插值过来）
+    State.cameraNode.position = Vector3(0, Config.CAM_OFFSET.y, Config.CAM_OFFSET.z)
+    State.cameraNode:LookAt(Vector3(0, 1.5, Config.CAM_LOOK_AHEAD))
     State.nextObstacleZ = 30.0
     State.nextCoinZ = 15.0
     ItemManager.ResetAll()
