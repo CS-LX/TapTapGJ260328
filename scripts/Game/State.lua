@@ -97,6 +97,9 @@ State.fxSpeedLineColor     = {100, 200, 255}   -- 速度线颜色
 State.fxVignetteAlpha      = 0.0               -- 边缘暗角强度
 State.fxVignetteTarget     = 0.0               -- 边缘暗角目标值
 State.fxWindParticles      = {}                -- 风粒子列表（3D 白点）
+State.fxSpeedLineTargetIntensity = 1.0         -- 速度线目标强度（渐进模式用）
+State.fxCamShakeIntensity  = 0.0               -- 渐进微震强度
+State.fxProgressivePullback = 0.0              -- 渐进相机后拉量
 
 -- 动画相关
 State.playerRunAngle = 0.0
@@ -180,6 +183,9 @@ function State.ClearAll()
     State.fxSpeedLineIntensity = 0.0
     State.fxVignetteAlpha      = 0.0
     State.fxVignetteTarget     = 0.0
+    State.fxSpeedLineTargetIntensity = 1.0
+    State.fxCamShakeIntensity  = 0.0
+    State.fxProgressivePullback = 0.0
     -- 清理风粒子
     for _, wp in ipairs(State.fxWindParticles) do
         if wp.node then wp.node:Remove() end

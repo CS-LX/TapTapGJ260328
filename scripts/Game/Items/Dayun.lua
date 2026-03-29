@@ -407,6 +407,7 @@ function Dayun.Activate()
     State.fxFlashTimer     = 0.2                           -- 短闪光
     State.fxFlashColor     = {255, 180, 50}                -- 金橙闪光
     State.fxSpeedLines     = true
+    State.fxSpeedLineTargetIntensity = 1.0                 -- 大运满强度
     State.fxSpeedLineColor = {255, 120, 30}                -- 橙色速度线
     State.fxVignetteTarget = 0.3
 

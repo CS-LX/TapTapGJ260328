@@ -300,6 +300,7 @@ function Player.Update(dt)
                 State.fxFlashTimer     = Config.CANYON_FX_FLASH_DURATION  -- 青白闪光
                 State.fxFlashColor     = {180, 230, 255}
                 State.fxSpeedLines     = true
+                State.fxSpeedLineTargetIntensity = 1.0     -- 峡谷满强度
                 State.fxSpeedLineColor = {100, 200, 255}   -- 青色速度线
                 State.fxVignetteTarget = 0.4
 

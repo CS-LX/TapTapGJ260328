@@ -1088,9 +1088,11 @@ end
 function GameUI.UpdateAndDrawSpeedFX(vg, w, h)
     local dt = GetTime():GetTimeStep()
 
-    -- 速度线 intensity 平滑过渡
+    -- 速度线 intensity 平滑过渡（向目标强度插值）
     if State.fxSpeedLines then
-        State.fxSpeedLineIntensity = math.min(1.0, State.fxSpeedLineIntensity + dt * 3.0)
+        local target = State.fxSpeedLineTargetIntensity or 1.0
+        State.fxSpeedLineIntensity = State.fxSpeedLineIntensity
+            + (target - State.fxSpeedLineIntensity) * 3.0 * dt
     else
         State.fxSpeedLineIntensity = math.max(0.0, State.fxSpeedLineIntensity - dt * 3.0)
     end

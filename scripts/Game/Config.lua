@@ -107,6 +107,27 @@ Config.DAYUN_SPEED_MULTIPLIER   = 2.0    -- 大运期间速度倍率
 Config.DAYUN_FX_FOV             = 55.0   -- 大运期间 FOV
 Config.DAYUN_FX_CAM_PULLBACK    = 2.0    -- 大运期间相机额外后拉
 
+-- 渐进式速度动感特效（正常跑步时随速度渐增）
+Config.PROGRESSIVE_FX = {
+    FOV_THRESHOLD       = 0.20,    -- speedRatio 超过此值开始拉宽 FOV
+    FOV_MAX_ADDITION    = 5.0,     -- 最大 FOV 增量（45→50）
+    FOV_CURVE_EXP       = 1.5,     -- ease-in 指数
+
+    VIGNETTE_THRESHOLD  = 0.30,    -- 暗角启动阈值
+    VIGNETTE_MAX        = 0.12,    -- 最大暗角（对比大运0.3/峡谷0.4）
+
+    PULLBACK_THRESHOLD  = 0.35,    -- 相机后拉启动阈值
+    PULLBACK_MAX        = 0.8,     -- 最大后拉（对比大运2m/峡谷4m）
+
+    SPEED_LINE_THRESHOLD     = 0.45,   -- 速度线启动阈值
+    SPEED_LINE_MAX_INTENSITY = 0.25,   -- 最大强度（对比特殊模式1.0）
+    SPEED_LINE_COLOR         = {200, 210, 230},  -- 中性白灰色
+
+    SHAKE_THRESHOLD     = 0.55,    -- 微震启动阈值
+    SHAKE_MAX           = 0.04,    -- 最大微震（对比大运0.08/峡谷0.15）
+    SHAKE_CURVE_EXP     = 2.0,     -- ease-in 二次曲线
+}
+
 -- 死亡动画配置
 Config.DEATH_DURATION = 1.5
 
