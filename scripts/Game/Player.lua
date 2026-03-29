@@ -724,6 +724,7 @@ end
 
 local menuPenguinNode = nil
 local menuElephantNode = nil
+local menuBearNodes = {}
 local menuSceneCreated = false
 
 local function CreateMenuBillboard(name, texPath, aspect, height)
@@ -766,11 +767,51 @@ function Player.CreateMenuScene()
     menuElephantNode = CreateMenuBillboard(
         "MenuElephant", "image/elephant.png", 798 / 1112, 2.8)
     menuElephantNode.position = Vector3(0.3, 3.0, 2.0)
+
+    -- 一堆熊大围观（半圆形排列，面朝中心看热闹）
+    menuBearNodes = {}
+    local bearCount = 7
+    local centerX, centerZ = 0.3, 2.0  -- 企鹅/大象的中心位置
+    local radius = 4.5                 -- 围观半径
+    local startAngle = math.rad(-100)  -- 从左后方
+    local endAngle   = math.rad(100)   -- 到右后方
+
+    for i = 1, bearCount do
+        local frac = (i - 1) / (bearCount - 1)  -- 0 ~ 1
+        local angle = startAngle + frac * (endAngle - startAngle)
+
+        -- 随机化：大小、距离、高度略有不同，更自然
+        local rndRadius = radius + (math.random() - 0.5) * 1.5
+        local rndHeight = 1.6 + math.random() * 0.6  -- 高度 1.6 ~ 2.2
+        local rndScale  = 0.7 + math.random() * 0.5  -- 大小 0.7 ~ 1.2
+
+        local bx = centerX + math.sin(angle) * rndRadius
+        local bz = centerZ + math.cos(angle) * rndRadius
+
+        local bearNode = CreateMenuBillboard(
+            "MenuBear" .. i, "image/bear.png", 538 / 972, rndHeight)
+        bearNode.position = Vector3(bx, rndHeight * 0.5, bz)
+        bearNode.scale = Vector3(rndScale, rndScale, rndScale)
+
+        table.insert(menuBearNodes, {
+            node = bearNode,
+            baseX = bx,
+            baseY = rndHeight * 0.5,
+            baseZ = bz,
+            baseScale = rndScale,
+            phase = math.random() * math.pi * 2,  -- 随机动画相位
+            speed = 1.5 + math.random() * 1.5,    -- 随机动画速度
+        })
+    end
 end
 
 function Player.DestroyMenuScene()
     if menuPenguinNode then menuPenguinNode:Remove() menuPenguinNode = nil end
     if menuElephantNode then menuElephantNode:Remove() menuElephantNode = nil end
+    for _, bear in ipairs(menuBearNodes) do
+        if bear.node then bear.node:Remove() end
+    end
+    menuBearNodes = {}
     menuSceneCreated = false
 end
 
@@ -817,6 +858,28 @@ function Player.UpdateMenuAnimation(dt)
         local elephantSquish = 1.0 + landingForce * 0.15
         local elephantStretch = 1.0 - landingForce * 0.10
         menuElephantNode.scale = Vector3(elephantSquish, elephantStretch, 1.0)
+
+        -- 熊大围观动画：随机跳跃、摇晃，大象落地时一起震
+        for _, bear in ipairs(menuBearNodes) do
+            if bear.node then
+                local bs = bear.baseScale
+                -- 每只熊有自己的节奏：随机呼吸 + 小跳
+                local bearBounce = math.abs(math.sin(t * bear.speed + bear.phase)) * 0.15
+                -- 大象落地时所有熊一起被震一下
+                local shockY = landingForce * 0.12
+                bear.node.position = Vector3(
+                    bear.baseX,
+                    bear.baseY + bearBounce + shockY,
+                    bear.baseZ)
+
+                -- 左右摇晃 + 落地时挤压
+                local sway = 1.0 + math.sin(t * bear.speed + bear.phase) * 0.06
+                bear.node.scale = Vector3(
+                    bs * sway,
+                    bs * (1.0 + landingForce * 0.08),
+                    bs)
+            end
+        end
     end
 
     -- 相机：更有电影感的环绕运动
