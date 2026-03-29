@@ -297,12 +297,12 @@ function GameUI.DrawMenuTutorial(vg, w, h, t)
     }
 
     local itemCount = #tutorialItems
-    local cardW = math.min(w * 0.7, 400)
-    local itemH = 36
-    local padding = 12
-    local cardH = itemCount * itemH + padding * 2 + 28  -- 28 for title
+    local cardW = math.min(w * 0.7, 500)
+    local itemH = 46
+    local padding = 16
+    local cardH = itemCount * itemH + padding * 2 + 36  -- 36 for title
     local cardX = (w - cardW) / 2
-    local cardY = h * 0.64
+    local cardY = h * 0.60
 
     -- 卡片背景（半透明圆角矩形 + 发光边框）
     nvgBeginPath(vg)
@@ -319,15 +319,15 @@ function GameUI.DrawMenuTutorial(vg, w, h, t)
     -- 标题
     nvgFontFace(vg, "sans")
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
-    nvgFontSize(vg, 18)
+    nvgFontSize(vg, 22)
     nvgFillColor(vg, nvgRGBA(100, 200, 255, 220))
-    nvgText(vg, w / 2, cardY + padding + 8, "-- 操作指南 --")
+    nvgText(vg, w / 2, cardY + padding + 12, "-- 操作指南 --")
 
     -- 教程内容
     nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
-    local startY = cardY + padding + 28 + itemH / 2
-    local colIcon = cardX + padding + 4
-    local colDesc = cardX + padding + 46
+    local startY = cardY + padding + 36 + itemH / 2
+    local colIcon = cardX + padding + 8
+    local colDesc = cardX + padding + 56
     local colKey  = cardX + cardW - padding - 8
 
     for i, item in ipairs(tutorialItems) do
@@ -342,24 +342,24 @@ function GameUI.DrawMenuTutorial(vg, w, h, t)
         end
 
         -- 图标
-        nvgFontSize(vg, 20)
+        nvgFontSize(vg, 26)
         nvgFillColor(vg, nvgRGBA(255, 255, 255, 230))
         nvgText(vg, colIcon, iy, item.icon)
 
         -- 描述
-        nvgFontSize(vg, 16)
+        nvgFontSize(vg, 20)
         nvgFillColor(vg, nvgRGBA(220, 230, 255, 220))
         nvgText(vg, colDesc, iy, item.desc)
 
         -- 按键/触控提示（右对齐）
         if item.key ~= "" then
             nvgTextAlign(vg, NVG_ALIGN_RIGHT + NVG_ALIGN_MIDDLE)
-            nvgFontSize(vg, 13)
+            nvgFontSize(vg, 16)
 
             -- 键盘按键标签（圆角背景）
             local keyText = item.key
-            local kw = (nvgTextBounds(vg, 0, 0, keyText) or 0) + 12
-            local kh = 20
+            local kw = (nvgTextBounds(vg, 0, 0, keyText) or 0) + 16
+            local kh = 26
             local kx = colKey - kw + 2
             local ky = iy - kh / 2
 
@@ -372,14 +372,14 @@ function GameUI.DrawMenuTutorial(vg, w, h, t)
             nvgStroke(vg)
 
             nvgFillColor(vg, nvgRGBA(200, 220, 255, 200))
-            nvgText(vg, colKey - 4, iy, keyText)
+            nvgText(vg, colKey - 6, iy, keyText)
             nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
         end
 
         -- 触控提示（小字灰色）
         if item.touch ~= "" then
             nvgTextAlign(vg, NVG_ALIGN_RIGHT + NVG_ALIGN_MIDDLE)
-            nvgFontSize(vg, 11)
+            nvgFontSize(vg, 14)
             nvgFillColor(vg, nvgRGBA(160, 170, 200, 140))
             local touchY = iy + 0
             -- 放在按键标签的左边

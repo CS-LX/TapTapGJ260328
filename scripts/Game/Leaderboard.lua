@@ -146,9 +146,9 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
     local t = GetTime():GetElapsedTime()
 
     -- 面板尺寸和位置（右侧）
-    local panelW = math.min(280, w * 0.32)
-    local panelH = math.min(420, h * 0.80)
-    local panelX = w - panelW - 16
+    local panelW = math.min(380, w * 0.38)
+    local panelH = math.min(520, h * 0.88)
+    local panelX = w - panelW - 20
     local panelY = (h - panelH) / 2
 
     nvgSave(vg)
@@ -173,9 +173,9 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
     -- ================================================================
     nvgFontFace(vg, "sans")
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
-    nvgFontSize(vg, 22)
+    nvgFontSize(vg, 28)
 
-    local titleY = panelY + 26
+    local titleY = panelY + 32
     -- 金色奖杯标题
     nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(180 * panelAlpha / 255)))
     nvgText(vg, panelX + panelW / 2 + 1, titleY + 1, "🏆 排行榜")
@@ -184,7 +184,7 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
 
     -- 分割线
     nvgBeginPath(vg)
-    local lineY = titleY + 18
+    local lineY = titleY + 24
     nvgMoveTo(vg, panelX + 16, lineY)
     nvgLineTo(vg, panelX + panelW - 16, lineY)
     nvgStrokeColor(vg, nvgRGBA(255, 200, 80, math.floor(60 * panelAlpha / 255)))
@@ -194,22 +194,22 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
     -- ================================================================
     -- 排行榜内容
     -- ================================================================
-    local contentY = lineY + 12
-    local rowH = 32
+    local contentY = lineY + 16
+    local rowH = 40
 
     if isLoading and #rankList == 0 then
         -- 加载中
-        nvgFontSize(vg, 16)
+        nvgFontSize(vg, 20)
         nvgFillColor(vg, nvgRGBA(180, 180, 180, panelAlpha))
         nvgText(vg, panelX + panelW / 2, panelY + panelH / 2, "加载中...")
     elseif loadError and #rankList == 0 then
         -- 加载失败
-        nvgFontSize(vg, 16)
+        nvgFontSize(vg, 20)
         nvgFillColor(vg, nvgRGBA(255, 100, 100, panelAlpha))
         nvgText(vg, panelX + panelW / 2, panelY + panelH / 2, "加载失败")
     elseif #rankList == 0 then
         -- 暂无数据
-        nvgFontSize(vg, 16)
+        nvgFontSize(vg, 20)
         nvgFillColor(vg, nvgRGBA(160, 160, 160, panelAlpha))
         nvgText(vg, panelX + panelW / 2, panelY + panelH / 2, "暂无排行数据")
     else
@@ -237,7 +237,7 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
 
             -- 排名（左侧）
             nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
-            nvgFontSize(vg, 16)
+            nvgFontSize(vg, 22)
             local rankIcon
             if i == 1 then rankIcon = "🥇"
             elseif i == 2 then rankIcon = "🥈"
@@ -245,10 +245,10 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
             else rankIcon = string.format(" %d", i) end
 
             nvgFillColor(vg, nvgRGBA(255, 255, 255, panelAlpha))
-            nvgText(vg, panelX + 14, rowY, rankIcon)
+            nvgText(vg, panelX + 16, rowY, rankIcon)
 
             -- 昵称（中间，截断）
-            nvgFontSize(vg, 14)
+            nvgFontSize(vg, 18)
             local nameColor = entry.isMe
                 and nvgRGBA(255, 220, 80, panelAlpha)
                 or  nvgRGBA(220, 230, 255, panelAlpha)
@@ -256,11 +256,11 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
 
             local displayName = entry.nickname or "玩家"
             -- 截断过长昵称（大约8个汉字宽度）
-            nvgText(vg, panelX + 48, rowY, displayName)
+            nvgText(vg, panelX + 56, rowY, displayName)
 
             -- 分数（右侧）
             nvgTextAlign(vg, NVG_ALIGN_RIGHT + NVG_ALIGN_MIDDLE)
-            nvgFontSize(vg, 14)
+            nvgFontSize(vg, 18)
             nvgFillColor(vg, nvgRGBA(255, 255, 255, panelAlpha))
             nvgText(vg, panelX + panelW - 14, rowY, tostring(entry.score))
         end
@@ -268,7 +268,7 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
         -- ================================================================
         -- 我的排名（底部）
         -- ================================================================
-        local footerY = panelY + panelH - 24
+        local footerY = panelY + panelH - 30
         nvgBeginPath(vg)
         nvgMoveTo(vg, panelX + 16, footerY - 12)
         nvgLineTo(vg, panelX + panelW - 16, footerY - 12)
@@ -277,7 +277,7 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
         nvgStroke(vg)
 
         nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
-        nvgFontSize(vg, 14)
+        nvgFontSize(vg, 18)
         if myRank then
             nvgFillColor(vg, nvgRGBA(255, 220, 80, panelAlpha))
             nvgText(vg, panelX + panelW / 2, footerY,
