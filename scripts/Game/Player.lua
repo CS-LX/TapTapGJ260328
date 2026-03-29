@@ -809,7 +809,7 @@ function Player.UpdateMenuAnimation(dt)
         -- 大象着地时企鹅被狠狠压扁
         local landingForce = (1.0 - rawBounce)  -- 0=空中, 1=着地
         local squishY = 0.55 * (1.0 - landingForce * 0.45)  -- 着地时压到原高的55%
-        local squishX = 1.0 + landingForce * 0.5  -- 横向膨胀50%
+        local squishX = 1.0 + landingForce * 2.5  -- 横向膨胀250%
         menuPenguinNode.scale = Vector3(squishX, squishY, 1.0 + landingForce * 0.3)
 
         -- 大象着地时自身也有挤压拉伸
