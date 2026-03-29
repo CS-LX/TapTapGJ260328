@@ -307,7 +307,7 @@ function Player.Update(dt)
                 -- 飞跃沟壑时推进 BGM 阶段
                 local newStage = 4 - math.min(State.biomeChangeCount, 3)
                 BGM.SetStage(newStage)
-                SFX.Play("eagle_screech.ogg")
+                SFX.Play("eagle_screech.ogg", 1.5)
                 print("[Canyon] Auto jump triggered! BGM stage → " .. newStage)
             end
         end
