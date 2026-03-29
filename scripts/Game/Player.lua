@@ -885,7 +885,7 @@ function Player.UpdateMenuAnimation(dt)
     -- 相机：环绕运动，对准大蓝象
     local orbitAngle = t * 0.25
     local orbitRadius = 7.0 + math.sin(t * 0.4) * 0.8
-    local camHeight = 4.2 + math.sin(t * 0.35) * 0.5
+    local camHeight = 3.0 + math.sin(t * 0.35) * 0.4
     local camX = math.sin(orbitAngle) * orbitRadius * 0.25
     local camZ = -orbitRadius + math.cos(orbitAngle) * 0.5
 
