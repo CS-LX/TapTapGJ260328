@@ -1106,43 +1106,73 @@ function GameUI.DrawCelebration(vg, w, h, cAnimT, t)
     local THUMB_DELAY = 1.8   -- 大拇指延迟
     local TEXT_DELAY  = 2.2   -- 成就文字延迟
 
-    -- ---- 人物上半身：从底部弹性"duang"弹出 ----
+    -- ---- 人物上半身：从底部夸张弹出 + 搞笑摇晃 ----
     if cAnimT > CHAR_DELAY and celebCharImg ~= -1 then
         local ct = cAnimT - CHAR_DELAY
-        local duration = 0.8
+        local duration = 1.0
         local p = math.min(1.0, ct / duration)
 
-        -- 弹性缓出 (elastic ease-out) 实现 "duang" 手感
+        -- 更夸张的弹性缓出：多次大幅超调回弹
         local ep
         if p >= 1.0 then
             ep = 1.0
         else
-            ep = math.sin(-13 * (math.pi / 2) * (p + 1)) * (2 ^ (-10 * p)) + 1
+            ep = math.sin(-13 * (math.pi / 2) * (p + 1)) * (2 ^ (-8 * p)) + 1
         end
 
         local imgW, imgH = nvgImageSize(vg, celebCharImg)
         if imgW > 0 and imgH > 0 then
-            -- 目标尺寸：高度 = 屏幕 45%
-            local targetH = h * 0.45
+            -- 目标尺寸：高度 = 屏幕 50%（更大更有冲击力）
+            local targetH = h * 0.50
             local imgScale = targetH / imgH
             local targetW = imgW * imgScale
 
             -- 位置：左侧偏下，从屏幕底部弹上来
             local drawX = w * 0.02
-            local finalY = h - targetH  -- 最终位置：贴底
-            local startY = h + 20       -- 起始位置：屏幕外
+            local finalY = h - targetH
+            local startY = h + 20
 
             local drawY
             if p < 1.0 then
                 drawY = startY + (finalY - startY) * ep
             else
-                -- 落定后轻微呼吸浮动
-                drawY = finalY + math.sin(t * 2) * 3
+                -- 落定后上下摇晃 + 左右晃动，像在嘚瑟
+                drawY = finalY + math.sin(t * 3.5) * 6
+            end
+
+            -- 搞笑摇摆：入场时左右甩 + 落定后持续嘚瑟晃
+            local wobbleAngle = 0
+            if p < 1.0 then
+                -- 入场时大幅甩动
+                wobbleAngle = math.sin(p * math.pi * 5) * (1 - p) * 15
+            else
+                -- 落定后持续搞笑左右摇摆
+                wobbleAngle = math.sin(t * 4) * 5 + math.sin(t * 7) * 2
+            end
+
+            -- 横向挤压拉伸（squash & stretch）
+            local scaleX, scaleY = 1.0, 1.0
+            if p < 1.0 then
+                local squash = math.sin(p * math.pi * 4) * (1 - p) * 0.15
+                scaleX = 1.0 + squash
+                scaleY = 1.0 - squash
+            else
+                local breathe = math.sin(t * 3) * 0.03
+                scaleX = 1.0 + breathe
+                scaleY = 1.0 - breathe
             end
 
             local alpha = math.min(1.0, ct * 3)
 
+            -- 用 transform 实现旋转 + 挤压拉伸
+            local pivotX = drawX + targetW * 0.5
+            local pivotY = drawY + targetH  -- 以脚部为旋转锚点
             nvgSave(vg)
+            nvgTranslate(vg, pivotX, pivotY)
+            nvgRotate(vg, math.rad(wobbleAngle))
+            nvgScale(vg, scaleX, scaleY)
+            nvgTranslate(vg, -pivotX, -pivotY)
+
             nvgBeginPath(vg)
             nvgRect(vg, drawX, drawY, targetW, targetH)
             local imgPaint = nvgImagePattern(vg, drawX, drawY, targetW, targetH,
@@ -1159,17 +1189,18 @@ function GameUI.DrawCelebration(vg, w, h, cAnimT, t)
 
                 local thumbScale
                 if entryP < 1.0 then
-                    -- 弹入：缓出 + 弹跳
+                    -- 弹入：超级夸张弹跳
                     thumbScale = entryP * (2.0 - entryP)
-                        + math.sin(entryP * math.pi * 3) * (1 - entryP) * 0.3
+                        + math.sin(entryP * math.pi * 4) * (1 - entryP) * 0.6
                 else
-                    -- 持续脉冲：放大缩小放大缩小
-                    thumbScale = 1.0 + math.sin(t * 4) * 0.18
+                    -- 持续脉冲：大幅放大缩小，像在疯狂点赞
+                    thumbScale = 1.0 + math.sin(t * 5) * 0.40
+                        + math.sin(t * 8) * 0.10
                 end
 
                 local tImgW, tImgH = nvgImageSize(vg, celebThumbImg)
                 if tImgW > 0 and tImgH > 0 then
-                    local thumbTargetH = h * 0.18
+                    local thumbTargetH = h * 0.28
                     local tBaseScale = thumbTargetH / tImgH
                     local tFinalScale = tBaseScale * thumbScale
                     local tDrawW = tImgW * tFinalScale
