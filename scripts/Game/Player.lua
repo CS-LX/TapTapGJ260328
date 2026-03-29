@@ -234,6 +234,9 @@ function Player.StartGame()
     State.ClearAll()
     ItemManager.ClearAll()
 
+    -- 销毁菜单场景角色
+    Player.DestroyMenuScene()
+
     -- 重置位置、旋转和可见性
     State.playerNode.position = Vector3(0, 0, 0)
     State.playerNode.rotation = Quaternion(0, 0, 0)
@@ -711,62 +714,110 @@ function Player.CheckCollision(obs)
 end
 
 -- ============================================================================
--- 菜单动画
+-- 菜单动画：企鹅趴地 + 大蓝象踩背
 -- ============================================================================
+
+local menuPenguinNode = nil
+local menuElephantNode = nil
+local menuSceneCreated = false
+
+local function CreateMenuBillboard(name, texPath, aspect, height)
+    local node = State.scene:CreateChild(name)
+    local width = height * aspect
+
+    local bbSet = node:CreateComponent("BillboardSet")
+    bbSet.numBillboards = 1
+    bbSet.sorted = true
+    bbSet.faceCameraMode = FC_ROTATE_Y
+    bbSet.castShadows = true
+
+    local mat = Material:new()
+    mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/DiffAlpha.xml"))
+    mat:SetTexture(0, cache:GetResource("Texture2D", texPath))
+    mat:SetShaderParameter("MatDiffColor", Variant(Color(2.5, 2.5, 2.5, 1.0)))
+    bbSet:SetMaterial(mat)
+
+    local bb = bbSet:GetBillboard(0)
+    bb.position = Vector3(0, 0, 0)
+    bb.size = Vector2(width * 0.5, height * 0.5)
+    bb.enabled = true
+    bbSet:Commit()
+
+    return node
+end
+
+function Player.CreateMenuScene()
+    if menuSceneCreated then return end
+    menuSceneCreated = true
+
+    -- 企鹅：趴在地上（缩小，低位置模拟趴姿）
+    menuPenguinNode = CreateMenuBillboard(
+        "MenuPenguin", "image/gugugaga.png", 366 / 671, 1.8)
+    menuPenguinNode.position = Vector3(0.3, 0.9, 2.0)
+    -- 企鹅缩矮模拟趴下（Y 方向压缩）
+    menuPenguinNode.scale = Vector3(1.0, 0.55, 1.0)
+
+    -- 大蓝象：在企鹅上方
+    menuElephantNode = CreateMenuBillboard(
+        "MenuElephant", "image/elephant.png", 798 / 1112, 2.8)
+    menuElephantNode.position = Vector3(0.3, 3.0, 2.0)
+end
+
+function Player.DestroyMenuScene()
+    if menuPenguinNode then menuPenguinNode:Remove() menuPenguinNode = nil end
+    if menuElephantNode then menuElephantNode:Remove() menuElephantNode = nil end
+    menuSceneCreated = false
+end
 
 function Player.UpdateMenuAnimation(dt)
     local t = GetTime():GetElapsedTime()
 
+    -- 隐藏跑步小人
     if State.playerNode then
-        -- 角色位置：居中偏前，略向右，让画面更有层次
-        State.playerNode.position = Vector3(0.3, 0, 2.0)
-        -- 身体轻微左右晃动（跑步节奏感）
-        local bodyRoll = math.sin(t * 6.0) * 2.5
-        State.playerNode.rotation = Quaternion(0, 0, bodyRoll)
+        Player.SetVisible(false)
+        State.playerNode.position = Vector3(0, -100, 0)
+    end
 
-        -- 腿部跑步摆动（快节奏，展示"快跑"主题）
-        local legSpeed = 8.0  -- 比游戏中更快，营造活力
-        local legSwing = math.sin(t * legSpeed) * 0.4
-        local leftLeg = State.playerNode:GetChild("LeftLeg")
-        local rightLeg = State.playerNode:GetChild("RightLeg")
-        if leftLeg then
-            leftLeg.position = Vector3(-0.15, 0.4, legSwing)
-            leftLeg.scale = Vector3(0.25, 0.8, 0.25)
-            leftLeg.rotation = Quaternion(-legSwing * 50, Vector3.RIGHT)
-        end
-        if rightLeg then
-            rightLeg.position = Vector3(0.15, 0.4, -legSwing)
-            rightLeg.scale = Vector3(0.25, 0.8, 0.25)
-            rightLeg.rotation = Quaternion(legSwing * 50, Vector3.RIGHT)
-        end
+    -- 创建菜单场景角色（只创建一次）
+    Player.CreateMenuScene()
 
-        -- 头部微微上下点动
-        local headNode = State.playerNode:GetChild("Head")
-        if headNode then
-            local headBob = math.abs(math.sin(t * legSpeed)) * 0.08
-            headNode.position = Vector3(0, 2.0 + headBob, 0)
-        end
+    if menuPenguinNode and menuElephantNode then
+        -- 企鹅：趴在地上，轻微呼吸起伏
+        local breathe = math.sin(t * 2.0) * 0.02
+        menuPenguinNode.position = Vector3(0.3, 0.9 + breathe, 2.0)
 
-        -- 身体轻微上下弹跳（跑步时重心起伏）
-        local bodyNode = State.playerNode:GetChild("Body")
-        if bodyNode then
-            local bodyBob = math.abs(math.sin(t * legSpeed)) * 0.06
-            bodyNode.position = Vector3(0, 0.9 + bodyBob, 0)
-            bodyNode.scale = Vector3(0.6, 1.8, 0.5)
-        end
+        -- 大蓝象：一跳一跳踩在企鹅背上
+        -- 弹跳曲线：用 abs(sin) 做弹跳，到底部时快速回弹
+        local jumpFreq = 3.0  -- 跳跃频率
+        local jumpPhase = t * jumpFreq
+        local rawBounce = math.abs(math.sin(jumpPhase))
+        -- 用幂次让底部停留时间短、顶部停留时间更长，更有趣
+        local bounce = rawBounce * rawBounce
+        local jumpHeight = 1.2  -- 最大弹跳高度
+        local elephantBaseY = 1.8  -- 基础 Y（企鹅背上方）
+        local elephantY = elephantBaseY + bounce * jumpHeight
+
+        menuElephantNode.position = Vector3(0.3, elephantY, 2.0)
+
+        -- 大象着地时企鹅被压扁一下
+        local squishFactor = 1.0 - (1.0 - rawBounce) * 0.15
+        menuPenguinNode.scale = Vector3(1.0 + (1.0 - squishFactor) * 0.2, 0.55 * squishFactor, 1.0)
+
+        -- 大象着地时做一个轻微的缩放弹性效果
+        local elephantSquish = 1.0 + (1.0 - rawBounce) * 0.08
+        local elephantStretch = 1.0 - (1.0 - rawBounce) * 0.05
+        menuElephantNode.scale = Vector3(elephantSquish, elephantStretch, 1.0)
     end
 
     -- 相机：更有电影感的环绕运动
-    -- 轻微绕角色旋转 + 呼吸式远近变化
-    local orbitAngle = t * 0.25  -- 缓慢环绕
-    local orbitRadius = 7.5 + math.sin(t * 0.4) * 1.0  -- 远近呼吸
-    local camHeight = 3.5 + math.sin(t * 0.35) * 0.6  -- 高低起伏
-    local camX = math.sin(orbitAngle) * orbitRadius * 0.25  -- 水平弧度小
+    local orbitAngle = t * 0.25
+    local orbitRadius = 7.5 + math.sin(t * 0.4) * 1.0
+    local camHeight = 3.5 + math.sin(t * 0.35) * 0.6
+    local camX = math.sin(orbitAngle) * orbitRadius * 0.25
     local camZ = -orbitRadius + math.cos(orbitAngle) * 0.5
 
     State.cameraNode.position = Vector3(camX, camHeight, camZ)
-    -- 相机始终看向角色身体中心偏上
-    local lookTarget = Vector3(0.3, 1.2, 2.0)
+    local lookTarget = Vector3(0.3, 1.5, 2.0)
     local dir = lookTarget - State.cameraNode.position
     local pitch = math.deg(math.atan(dir.y, math.sqrt(dir.x * dir.x + dir.z * dir.z)))
     local yaw = math.deg(math.atan(dir.x, dir.z))
