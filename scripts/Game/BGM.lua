@@ -83,7 +83,7 @@ end
 --- 设置全局音量
 ---@param v number  0.0~1.0
 function BGM.SetVolume(v)
-    volume = math.max(0, math.min(v, 1.0))
+    volume = math.max(0, v)
 end
 
 --- 切换静音状态
