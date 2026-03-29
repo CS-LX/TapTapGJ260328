@@ -97,6 +97,13 @@ function Player.HandlePlayingInput(dt)
     if input:GetKeyPress(KEY_S) or input:GetKeyPress(KEY_DOWN) or input:GetKeyPress(KEY_LSHIFT) or input:GetKeyPress(KEY_RSHIFT) then
         Player.Slide()
     end
+
+    -- 作弊模式：Tab 键直接拉满分数和速度
+    if input:GetKeyPress(KEY_TAB) then
+        State.score = 50000
+        State.runSpeed = 41.67  -- 150 km/h
+        print("[CHEAT] Score → 50000, Speed → 150 km/h (41.67 m/s)")
+    end
 end
 
 function Player.HandleGameOverInput(dt)
