@@ -13,11 +13,19 @@ local GameUI = {}
 -- 初始化
 -- ============================================================================
 
+-- 庆祝特效相关
+local celebCharImg = -1   -- 人物上半身图片句柄
+local celebThumbImg = -1  -- 大拇指图片句柄
+local celebAnimT = 0      -- 庆祝动画计时器
+
 function GameUI.Init(nvgCtx)
     State.fontNormal = nvgCreateFont(nvgCtx, "sans", "Fonts/MiSans-Regular.ttf")
     if State.fontNormal == -1 then
         print("ERROR: Failed to load font")
     end
+    -- 加载庆祝特效图片
+    celebCharImg = nvgCreateImage(nvgCtx, "image/图层 2.png", 0)
+    celebThumbImg = nvgCreateImage(nvgCtx, "image/图层 3.png", 0)
 end
 
 -- ============================================================================
@@ -44,6 +52,7 @@ function GameUI.Render(eventType, eventData)
     if State.gameState == Config.STATE_GAMEOVER and prevGameState ~= Config.STATE_GAMEOVER then
         gameOverAnimT = 0
         goParticles = {}
+        celebAnimT = 0
     end
     prevGameState = State.gameState
 
@@ -1011,6 +1020,14 @@ function GameUI.DrawGameOver(w, h)
     end
 
     -- ================================================================
+    -- 庆祝特效：分数 >= 40000 时显示（人物弹出 + 大拇指 + 成就文字）
+    -- ================================================================
+    if State.score >= 40000 and celebCharImg ~= -1 then
+        celebAnimT = celebAnimT + dt
+        GameUI.DrawCelebration(vg, w, h, celebAnimT, t)
+    end
+
+    -- ================================================================
     -- 重新开始提示文字（1.5秒后出现，闪烁呼吸）
     -- ================================================================
     if animT > 1.5 then
@@ -1077,6 +1094,156 @@ function GameUI.UpdateAndDrawGOParticles(vg, w, h, t, dt, isNewRecord)
     end
     for i = #toRemove, 1, -1 do
         table.remove(goParticles, toRemove[i])
+    end
+end
+
+-- ============================================================================
+-- 庆祝特效：分数 >= 40000 时（人物弹出 + 大拇指 + 成就文字）
+-- ============================================================================
+
+function GameUI.DrawCelebration(vg, w, h, cAnimT, t)
+    local CHAR_DELAY  = 1.3   -- 人物出场延迟
+    local THUMB_DELAY = 1.8   -- 大拇指延迟
+    local TEXT_DELAY  = 2.2   -- 成就文字延迟
+
+    -- ---- 人物上半身：从底部弹性"duang"弹出 ----
+    if cAnimT > CHAR_DELAY and celebCharImg ~= -1 then
+        local ct = cAnimT - CHAR_DELAY
+        local duration = 0.8
+        local p = math.min(1.0, ct / duration)
+
+        -- 弹性缓出 (elastic ease-out) 实现 "duang" 手感
+        local ep
+        if p >= 1.0 then
+            ep = 1.0
+        else
+            ep = math.sin(-13 * (math.pi / 2) * (p + 1)) * (2 ^ (-10 * p)) + 1
+        end
+
+        local imgW, imgH = nvgImageSize(vg, celebCharImg)
+        if imgW > 0 and imgH > 0 then
+            -- 目标尺寸：高度 = 屏幕 45%
+            local targetH = h * 0.45
+            local imgScale = targetH / imgH
+            local targetW = imgW * imgScale
+
+            -- 位置：左侧偏下，从屏幕底部弹上来
+            local drawX = w * 0.02
+            local finalY = h - targetH  -- 最终位置：贴底
+            local startY = h + 20       -- 起始位置：屏幕外
+
+            local drawY
+            if p < 1.0 then
+                drawY = startY + (finalY - startY) * ep
+            else
+                -- 落定后轻微呼吸浮动
+                drawY = finalY + math.sin(t * 2) * 3
+            end
+
+            local alpha = math.min(1.0, ct * 3)
+
+            nvgSave(vg)
+            nvgBeginPath(vg)
+            nvgRect(vg, drawX, drawY, targetW, targetH)
+            local imgPaint = nvgImagePattern(vg, drawX, drawY, targetW, targetH,
+                0, celebCharImg, alpha)
+            nvgFillPaint(vg, imgPaint)
+            nvgFill(vg)
+            nvgRestore(vg)
+
+            -- ---- 大拇指：在人物右下侧弹出 + 脉冲放大缩小 ----
+            if cAnimT > THUMB_DELAY and celebThumbImg ~= -1 then
+                local tt = cAnimT - THUMB_DELAY
+                local entryDur = 0.5
+                local entryP = math.min(1.0, tt / entryDur)
+
+                local thumbScale
+                if entryP < 1.0 then
+                    -- 弹入：缓出 + 弹跳
+                    thumbScale = entryP * (2.0 - entryP)
+                        + math.sin(entryP * math.pi * 3) * (1 - entryP) * 0.3
+                else
+                    -- 持续脉冲：放大缩小放大缩小
+                    thumbScale = 1.0 + math.sin(t * 4) * 0.18
+                end
+
+                local tImgW, tImgH = nvgImageSize(vg, celebThumbImg)
+                if tImgW > 0 and tImgH > 0 then
+                    local thumbTargetH = h * 0.18
+                    local tBaseScale = thumbTargetH / tImgH
+                    local tFinalScale = tBaseScale * thumbScale
+                    local tDrawW = tImgW * tFinalScale
+                    local tDrawH = tImgH * tFinalScale
+
+                    -- 锚点：人物图片右下角偏移
+                    local thumbCX = drawX + targetW * 0.85
+                    local thumbCY = drawY + targetH * 0.65
+                    local tDrawX = thumbCX - tDrawW / 2
+                    local tDrawY = thumbCY - tDrawH / 2
+
+                    local tAlpha = math.min(1.0, tt * 4)
+
+                    nvgSave(vg)
+                    nvgBeginPath(vg)
+                    nvgRect(vg, tDrawX, tDrawY, tDrawW, tDrawH)
+                    local tPaint = nvgImagePattern(vg, tDrawX, tDrawY, tDrawW, tDrawH,
+                        0, celebThumbImg, tAlpha)
+                    nvgFillPaint(vg, tPaint)
+                    nvgFill(vg)
+                    nvgRestore(vg)
+                end
+            end
+        end
+    end
+
+    -- ---- 成就文字：弹入 + 金色脉冲发光 ----
+    if cAnimT > TEXT_DELAY then
+        local at = cAnimT - TEXT_DELAY
+        local textAlpha = math.floor(math.min(1.0, at * 3) * 255)
+
+        -- 弹入缩放
+        local textScale
+        if at < 0.6 then
+            local p = at / 0.6
+            textScale = p * (2 - p)
+                + math.sin(p * math.pi * 2) * (1 - p) * 0.2
+        else
+            textScale = 1.0 + math.sin(t * 3) * 0.05
+        end
+
+        -- 位置：屏幕中下方
+        local textX = w * 0.5
+        local textY = h * 0.72
+
+        nvgSave(vg)
+        nvgTranslate(vg, textX, textY)
+        nvgScale(vg, textScale, textScale)
+
+        nvgFontFace(vg, "sans")
+        nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+        nvgFontSize(vg, 28)
+
+        -- 金色光晕（大字模糊层）
+        nvgFontSize(vg, 32)
+        nvgFillColor(vg, nvgRGBA(255, 200, 50, math.floor(textAlpha * 0.3)))
+        nvgText(vg, 0, 0, "获得成就：全自动踩背机")
+
+        -- 黑色描边
+        nvgFontSize(vg, 28)
+        for _, off in ipairs({{-2,-2},{2,-2},{-2,2},{2,2},{0,-2},{0,2},{-2,0},{2,0}}) do
+            nvgFillColor(vg, nvgRGBA(0, 0, 0, textAlpha))
+            nvgText(vg, off[1], off[2], "获得成就：全自动踩背机")
+        end
+
+        -- 金色主体 + 呼吸脉冲
+        local goldPulse = math.sin(t * 5) * 0.2 + 0.8
+        nvgFillColor(vg, nvgRGBA(255,
+            math.floor(200 * goldPulse + 55),
+            math.floor(30 + goldPulse * 30),
+            textAlpha))
+        nvgText(vg, 0, 0, "获得成就：全自动踩背机")
+
+        nvgRestore(vg)
     end
 end
 
