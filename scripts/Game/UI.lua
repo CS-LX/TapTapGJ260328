@@ -6,6 +6,7 @@ local Config      = require "Game.Config"
 local State       = require "Game.State"
 local ItemManager = require "Game.Items.ItemManager"
 local BGM         = require "Game.BGM"
+local Leaderboard = require "Game.Leaderboard"
 
 local GameUI = {}
 
@@ -48,11 +49,14 @@ function GameUI.Render(eventType, eventData)
     local physW = g:GetWidth()
     local physH = g:GetHeight()
 
-    -- 检测进入 GAMEOVER 状态，重置结算动画
+    -- 检测进入 GAMEOVER 状态，重置结算动画 + 上传分数 + 刷新排行榜
     if State.gameState == Config.STATE_GAMEOVER and prevGameState ~= Config.STATE_GAMEOVER then
         gameOverAnimT = 0
         goParticles = {}
         celebAnimT = 0
+        -- 上传分数并刷新排行榜
+        Leaderboard.UploadScore(State.score)
+        Leaderboard.Fetch()
     end
     prevGameState = State.gameState
 
@@ -270,6 +274,11 @@ function GameUI.DrawMenu(w, h)
     -- BGM 开关按钮（右上角）
     -- ================================================================
     GameUI.DrawBGMButton(vg, w, h)
+
+    -- ================================================================
+    -- 排行榜（右侧面板）
+    -- ================================================================
+    Leaderboard.Draw(vg, w, h, 255)
 end
 
 -- ============================================================================
@@ -1026,6 +1035,12 @@ function GameUI.DrawGameOver(w, h)
         celebAnimT = celebAnimT + dt
         GameUI.DrawCelebration(vg, w, h, celebAnimT, t)
     end
+
+    -- ================================================================
+    -- 排行榜（右侧面板，延迟淡入）
+    -- ================================================================
+    local lbAlpha = math.floor(math.min(1, math.max(0, (animT - 1.0) * 2)) * 255)
+    Leaderboard.Draw(vg, w, h, lbAlpha)
 
     -- ================================================================
     -- 重新开始提示文字（1.5秒后出现，闪烁呼吸）

@@ -14,6 +14,7 @@ local GameUI      = require "Game.UI"
 local ItemManager = require "Game.Items.ItemManager"
 local BGM         = require "Game.BGM"
 local SFX         = require "Game.SFX"
+local Leaderboard = require "Game.Leaderboard"
 
 -- 加载道具模块（触发自动注册）
 require "Game.Items.Heart"
@@ -56,6 +57,9 @@ function Start()
     State.onGameReset = function()
         BGM.SetStage(4)
     end
+
+    -- 启动时加载排行榜
+    Leaderboard.Fetch()
 
     -- 订阅事件
     SubscribeToEvent("Update", "HandleUpdate")
