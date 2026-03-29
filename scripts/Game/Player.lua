@@ -774,6 +774,9 @@ function Player.DestroyMenuScene()
 end
 
 function Player.UpdateMenuAnimation(dt)
+    -- 如果 HandleMenuInput 已经切换了状态（按空格开始游戏），跳过菜单动画
+    if State.gameState ~= Config.STATE_MENU then return end
+
     local t = GetTime():GetElapsedTime()
 
     -- 隐藏跑步小人
