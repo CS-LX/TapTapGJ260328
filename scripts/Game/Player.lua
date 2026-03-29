@@ -806,13 +806,15 @@ function Player.UpdateMenuAnimation(dt)
 
         menuElephantNode.position = Vector3(0.3, elephantY, 2.0)
 
-        -- 大象着地时企鹅被压扁一下
-        local squishFactor = 1.0 - (1.0 - rawBounce) * 0.15
-        menuPenguinNode.scale = Vector3(1.0 + (1.0 - squishFactor) * 0.2, 0.55 * squishFactor, 1.0)
+        -- 大象着地时企鹅被狠狠压扁
+        local landingForce = (1.0 - rawBounce)  -- 0=空中, 1=着地
+        local squishY = 0.55 * (1.0 - landingForce * 0.45)  -- 着地时压到原高的55%
+        local squishX = 1.0 + landingForce * 0.5  -- 横向膨胀50%
+        menuPenguinNode.scale = Vector3(squishX, squishY, 1.0 + landingForce * 0.3)
 
-        -- 大象着地时做一个轻微的缩放弹性效果
-        local elephantSquish = 1.0 + (1.0 - rawBounce) * 0.08
-        local elephantStretch = 1.0 - (1.0 - rawBounce) * 0.05
+        -- 大象着地时自身也有挤压拉伸
+        local elephantSquish = 1.0 + landingForce * 0.15
+        local elephantStretch = 1.0 - landingForce * 0.10
         menuElephantNode.scale = Vector3(elephantSquish, elephantStretch, 1.0)
     end
 
