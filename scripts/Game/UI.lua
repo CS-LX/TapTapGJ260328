@@ -239,10 +239,15 @@ function GameUI.DrawMenu(w, h)
     nvgText(vg, w/2, promptY, "按下空格，来一局")
 
     -- ================================================================
+    -- 操作教程（醒目卡片）
+    -- ================================================================
+    GameUI.DrawMenuTutorial(vg, w, h, t)
+
+    -- ================================================================
     -- 最高分（金色奖杯 + 闪烁星星）
     -- ================================================================
     if State.highScore > 0 then
-        local hsY = h * 0.75
+        local hsY = h * 0.90
         local starBlink = math.sin(t * 5) > 0.3 and "⭐" or "✨"
         local hsText = starBlink .. " 最高分: " .. State.highScore .. " " .. starBlink
         nvgFontSize(vg, 22)
@@ -253,17 +258,120 @@ function GameUI.DrawMenu(w, h)
     end
 
     -- ================================================================
-    -- 底部提示（淡淡一行，不喧宾夺主）
-    -- ================================================================
-    local guideAlpha = math.floor(80 + math.sin(t * 2) * 40)
-    nvgFontSize(vg, 13)
-    nvgFillColor(vg, nvgRGBA(180, 180, 200, guideAlpha))
-    nvgText(vg, w/2, h - 30, "触屏滑动同样可以操作")
-
-    -- ================================================================
     -- BGM 开关按钮（右上角）
     -- ================================================================
     GameUI.DrawBGMButton(vg, w, h)
+end
+
+-- ============================================================================
+-- 菜单操作教程（醒目卡片式）
+-- ============================================================================
+
+function GameUI.DrawMenuTutorial(vg, w, h, t)
+    nvgSave(vg)
+
+    local tutorialItems = {
+        { icon = "⬅️ ➡️",  key = "A / D",     touch = "左右滑动", desc = "切换跑道" },
+        { icon = "⬆️",     key = "空格",       touch = "上滑",     desc = "跳跃" },
+        { icon = "⬇️",     key = "S",          touch = "下滑",     desc = "下蹲" },
+        { icon = "💰",     key = "",           touch = "",         desc = "收集金币加分" },
+        { icon = "❤️",     key = "",           touch = "",         desc = "吃爱心回血" },
+    }
+
+    local itemCount = #tutorialItems
+    local cardW = math.min(w * 0.7, 400)
+    local itemH = 36
+    local padding = 12
+    local cardH = itemCount * itemH + padding * 2 + 28  -- 28 for title
+    local cardX = (w - cardW) / 2
+    local cardY = h * 0.64
+
+    -- 卡片背景（半透明圆角矩形 + 发光边框）
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, cardX, cardY, cardW, cardH, 12)
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, 160))
+    nvgFill(vg)
+
+    -- 发光边框（脉冲呼吸）
+    local borderAlpha = math.floor(60 + math.sin(t * 2.5) * 40)
+    nvgStrokeWidth(vg, 1.5)
+    nvgStrokeColor(vg, nvgRGBA(100, 180, 255, borderAlpha))
+    nvgStroke(vg)
+
+    -- 标题
+    nvgFontFace(vg, "sans")
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFontSize(vg, 18)
+    nvgFillColor(vg, nvgRGBA(100, 200, 255, 220))
+    nvgText(vg, w / 2, cardY + padding + 8, "-- 操作指南 --")
+
+    -- 教程内容
+    nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+    local startY = cardY + padding + 28 + itemH / 2
+    local colIcon = cardX + padding + 4
+    local colDesc = cardX + padding + 46
+    local colKey  = cardX + cardW - padding - 8
+
+    for i, item in ipairs(tutorialItems) do
+        local iy = startY + (i - 1) * itemH
+
+        -- 交替行背景色
+        if i % 2 == 0 then
+            nvgBeginPath(vg)
+            nvgRoundedRect(vg, cardX + 6, iy - itemH / 2 + 2, cardW - 12, itemH - 4, 6)
+            nvgFillColor(vg, nvgRGBA(255, 255, 255, 12))
+            nvgFill(vg)
+        end
+
+        -- 图标
+        nvgFontSize(vg, 20)
+        nvgFillColor(vg, nvgRGBA(255, 255, 255, 230))
+        nvgText(vg, colIcon, iy, item.icon)
+
+        -- 描述
+        nvgFontSize(vg, 16)
+        nvgFillColor(vg, nvgRGBA(220, 230, 255, 220))
+        nvgText(vg, colDesc, iy, item.desc)
+
+        -- 按键/触控提示（右对齐）
+        if item.key ~= "" then
+            nvgTextAlign(vg, NVG_ALIGN_RIGHT + NVG_ALIGN_MIDDLE)
+            nvgFontSize(vg, 13)
+
+            -- 键盘按键标签（圆角背景）
+            local keyText = item.key
+            local kw = (nvgTextBounds(vg, 0, 0, keyText) or 0) + 12
+            local kh = 20
+            local kx = colKey - kw + 2
+            local ky = iy - kh / 2
+
+            nvgBeginPath(vg)
+            nvgRoundedRect(vg, kx, ky, kw, kh, 4)
+            nvgFillColor(vg, nvgRGBA(255, 255, 255, 30))
+            nvgFill(vg)
+            nvgStrokeWidth(vg, 1)
+            nvgStrokeColor(vg, nvgRGBA(255, 255, 255, 50))
+            nvgStroke(vg)
+
+            nvgFillColor(vg, nvgRGBA(200, 220, 255, 200))
+            nvgText(vg, colKey - 4, iy, keyText)
+            nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+        end
+
+        -- 触控提示（小字灰色）
+        if item.touch ~= "" then
+            nvgTextAlign(vg, NVG_ALIGN_RIGHT + NVG_ALIGN_MIDDLE)
+            nvgFontSize(vg, 11)
+            nvgFillColor(vg, nvgRGBA(160, 170, 200, 140))
+            local touchY = iy + 0
+            -- 放在按键标签的左边
+            local keyWidth = (item.key ~= "") and ((nvgTextBounds(vg, 0, 0, item.key) or 0) + 20) or 0
+            nvgText(vg, colKey - keyWidth - 4, touchY, item.touch)
+            nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+        end
+    end
+
+    nvgRestore(vg)
 end
 
 -- ============================================================================
