@@ -92,7 +92,7 @@ Config.HOLE_CONFIGS = {
 
 -- 大运大货车配置
 Config.DAYUN_SCORE_THRESHOLD  = 50000   -- 首次激活分数阈值
-Config.DAYUN_REPEAT_INTERVAL  = 25000   -- 之后每隔此分数可再次触发
+Config.DAYUN_REPEAT_INTERVAL  = 50000   -- 之后每隔此分数可再次触发
 Config.DAYUN_DURATION         = 10.0    -- 持续时间（秒）
 Config.DAYUN_INVINCIBLE_AFTER = 2.0     -- 失效后无敌缓冲（秒）
 
