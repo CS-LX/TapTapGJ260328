@@ -7,11 +7,12 @@ local ItemManager = require "Game.Items.ItemManager"
 local State       = require "Game.State"
 local Config      = require "Game.Config"
 local SFX         = require "Game.SFX"
+local GameUI      = require "Game.UI"
 
 local Heart = {}
 
 -- 配置
-Heart.INTERVAL    = 40.0   -- 出现间隔（米）
+Heart.INTERVAL    = 80.0   -- 出现间隔（米）
 Heart.HEIGHT      = 1.2    -- 浮空高度
 Heart.SIZE        = 0.7    -- Billboard 尺寸
 Heart.TEXTURE     = "image/heart_lowpoly_20260328171850.png"
@@ -69,8 +70,10 @@ function Heart.Update(dt)
         end,
         onCollect = function(item)
             SFX.Play("wow_sparkle.ogg", 0.8)
-            State.health = math.min(State.health + 1, Config.MAX_HEALTH)
             local p = item.node.position
+            -- 飞心动画：从捡到位置飞向左上角血条
+            GameUI.TriggerHealFlyHeart(Vector3(p.x, p.y + 1.0, p.z), State.health + 1)
+            State.health = math.min(State.health + 1, Config.MAX_HEALTH)
             table.insert(State.scorePopups, {
                 worldPos = Vector3(p.x, p.y, p.z),
                 baseY    = p.y + 0.5,

@@ -457,6 +457,20 @@ function GameUI.TriggerHitPopup(damage)
     })
 end
 
+--- 外部调用：捡到爱心时触发飞心动画（从 3D 位置飞向左上角血条）
+function GameUI.TriggerHealFlyHeart(worldPos, slotIndex)
+    table.insert(flyingHearts, {
+        worldPos = worldPos,           -- 3D 起点
+        slotIndex = slotIndex,         -- 飞向第几颗心槽位
+        timer = 0,
+        duration = 0.6,
+        heal = true,                   -- 标记为回血飞心
+        screenStartResolved = false,   -- 屏幕起点尚未计算
+        startX = 0, startY = 0,
+        targetX = 0, targetY = 0,
+    })
+end
+
 --- 更新并绘制扣血弹出
 local function UpdateAndDrawHitPopups(vg, w, h, dt)
     -- 更新抖动计时
@@ -534,11 +548,28 @@ local function UpdateAndDrawHitPopups(vg, w, h, dt)
         end
     end
 
-    -- 绘制飞行中的心（从玩家位置飞向左上角血条）
+    -- 绘制飞行中的心（扣血：从玩家飞向血条 / 回血：从拾取位置飞向血条）
+    local heartSize = 32
+    local heartGap = 4
+    local heartBaseX = 10
+    local heartBaseY = 5
+
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
     for i = #flyingHearts, 1, -1 do
         local fh = flyingHearts[i]
         fh.timer = fh.timer + dt
+
+        -- 回血飞心：首帧从 3D 坐标投影屏幕坐标
+        if fh.heal and not fh.screenStartResolved then
+            fh.screenStartResolved = true
+            local sp = camera:WorldToScreenPoint(fh.worldPos)
+            fh.startX = sp.x * w
+            fh.startY = sp.y * h
+            local si = fh.slotIndex or 1
+            fh.targetX = heartBaseX + 12 + (si - 1) * (heartSize + heartGap) + heartSize / 2
+            fh.targetY = heartBaseY + 20
+        end
+
         if fh.timer >= fh.duration then
             table.remove(flyingHearts, i)
         else
@@ -552,7 +583,7 @@ local function UpdateAndDrawHitPopups(vg, w, h, dt)
             cy = cy + arc
 
             local fAlpha = t < 0.8 and 255 or math.floor(255 * (1.0 - (t - 0.8) / 0.2))
-            local fScale = 1.5 - ease * 0.8
+            local fScale = fh.heal and (1.0 + (1.0 - ease) * 0.8) or (1.5 - ease * 0.8)
 
             nvgFontSize(vg, 32 * fScale)
             nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(fAlpha * 0.5)))
