@@ -882,15 +882,15 @@ function Player.UpdateMenuAnimation(dt)
         end
     end
 
-    -- 相机：近距离环绕，对准大蓝象
-    local orbitAngle = t * 0.2
-    local orbitRadius = 5.0 + math.sin(t * 0.4) * 0.5
-    local camHeight = 4.0 + math.sin(t * 0.35) * 0.4
-    local camX = 0.3 + math.sin(orbitAngle) * orbitRadius * 0.3
-    local camZ = 2.0 - orbitRadius + math.cos(orbitAngle) * 0.5
+    -- 相机：环绕运动，对准大蓝象
+    local orbitAngle = t * 0.25
+    local orbitRadius = 7.0 + math.sin(t * 0.4) * 0.8
+    local camHeight = 4.2 + math.sin(t * 0.35) * 0.5
+    local camX = math.sin(orbitAngle) * orbitRadius * 0.25
+    local camZ = -orbitRadius + math.cos(orbitAngle) * 0.5
 
     State.cameraNode.position = Vector3(camX, camHeight, camZ)
-    local lookTarget = Vector3(0.3, 2.5, 2.0)
+    local lookTarget = Vector3(0.3, 2.6, 2.0)
     local dir = lookTarget - State.cameraNode.position
     local pitch = math.deg(math.atan(dir.y, math.sqrt(dir.x * dir.x + dir.z * dir.z)))
     local yaw = math.deg(math.atan(dir.x, dir.z))
