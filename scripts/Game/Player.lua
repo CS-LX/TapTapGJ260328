@@ -180,7 +180,7 @@ function Player.SwitchLane(direction)
     if newLane >= -1 and newLane <= 1 then
         State.currentLane = newLane
         State.targetLaneX = State.currentLane * Config.LANE_WIDTH
-        SFX.Play("player_lane_switch.ogg")
+        SFX.Play("player_lane_switch.ogg", 0.5)
     end
 end
 
@@ -188,7 +188,7 @@ function Player.Jump()
     if not State.isJumping and not State.isSliding then
         State.isJumping = true
         State.playerVelocityY = Config.JUMP_VELOCITY
-        SFX.Play("throw.ogg")
+        SFX.Play("throw.ogg", 0.5)
     end
 end
 
@@ -196,7 +196,7 @@ function Player.Slide()
     if not State.isJumping and not State.isSliding then
         State.isSliding = true
         State.slideTimer = Config.SLIDE_DURATION
-        SFX.Play("player_slide.ogg")
+        SFX.Play("player_slide.ogg", 0.5)
     end
 end
 
