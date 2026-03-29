@@ -1,0 +1,238 @@
+{
+  "startTime": "2026-03-29T03:48:16.639Z",
+  "endTime": "2026-03-29T03:48:40.148Z",
+  "duration": "23509ms",
+  "result": {
+    "success": true
+  },
+  "steps": [
+    {
+      "time": "2026-03-29T03:48:16.641Z",
+      "stage": "upload_to_cdn",
+      "data": {
+        "status": "start"
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:24.067Z",
+      "stage": "upload_to_cdn",
+      "data": {
+        "status": "done"
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:24.067Z",
+      "stage": "network_config",
+      "data": {
+        "env": "production"
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:24.073Z",
+      "stage": "load_config",
+      "data": {
+        "projectId": "p_kl6c",
+        "configPath": "/userspaces/797f30b0-e021-47d5-a78c-2fcee5e9a6f0/workspace/.project/project.json",
+        "taptap_publish": {
+          "developer_id": 248818,
+          "title": "似腿快跑",
+          "description": "在这款3D无尽跑酷游戏中，你将操控角色在高速公路上极速狂奔！左右切换三条跑道闪避路障、跳跃横杆、下蹲低空障碍，灵活穿梭收集金币。\n\n穿越非洲草原、南极冰川、丘陵悬崖三大风格迥异的场景，每次场景切换都将迎来惊险刺激的峡谷飞跃！草原上踩背大蓝象挡住去路，冰川中咕咕嘎嘎企鹅列阵拦截，悬崖边熊大虎视眈眈——闪避这些萌系障碍，才能跑得更远！\n\n速度随距离不断攀升，最高可达180km/h，伴随动感十足的视觉特效让你肾上腺素飙升。触发大运货车模式，三车道碾压一切障碍，体验无敌冲刺的爽快感！拾取磁铁自动吸取周围金币，收集爱心恢复血量，挑战你的极限高分！",
+          "category": "action",
+          "screen_orientation": "landscape",
+          "collection_type": "sce",
+          "trial_note": "俺变得更强壮了！！！",
+          "app_platforms": "1,2",
+          "app_id": 835258,
+          "miniapp_id": "tapmcmu6gmn7y5mw4b",
+          "gameplay_demo_video_source": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4"
+        },
+        "assets": {
+          "icon": "./game_material/icon.png",
+          "screenshots": [
+            "./game_material/SCREENSHOT_2026-03-29T03-07-31_01.png",
+            "./game_material/SCREENSHOT_2026-03-29T03-07-31_02.png",
+            "./game_material/SCREENSHOT_2026-03-29T03-07-31_03.png"
+          ],
+          "promotional_image": "./game_material/PROMO_2026-03-29T03-07-31_01.jpg",
+          "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/p_kl6c/icon.png",
+          "screenshot_urls": [
+            "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_01.png",
+            "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_02.png",
+            "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_03.png"
+          ],
+          "promotional_image_url": "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/PROMO_2026-03-29T03-07-31_01.jpg"
+        }
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:24.590Z",
+      "stage": "update_game",
+      "data": {
+        "app_id": 835258,
+        "developer_id": 248818
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:24.590Z",
+      "stage": "upload_assets",
+      "data": {
+        "status": "start",
+        "assets": {
+          "icon": "./game_material/icon.png",
+          "screenshots": [
+            "./game_material/SCREENSHOT_2026-03-29T03-07-31_01.png",
+            "./game_material/SCREENSHOT_2026-03-29T03-07-31_02.png",
+            "./game_material/SCREENSHOT_2026-03-29T03-07-31_03.png"
+          ],
+          "promotional_image": "./game_material/PROMO_2026-03-29T03-07-31_01.jpg",
+          "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/p_kl6c/icon.png",
+          "screenshot_urls": [
+            "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_01.png",
+            "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_02.png",
+            "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_03.png"
+          ],
+          "promotional_image_url": "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/PROMO_2026-03-29T03-07-31_01.jpg"
+        }
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:27.891Z",
+      "stage": "upload_assets",
+      "data": {
+        "status": "done",
+        "uploadedAssets": {
+          "iconUrl": "https://img-tc.tapimg.com/market/images/Ftv-DNN_nAD7v4kQGWx6Zjss4U00.png",
+          "screenshotUrls": [
+            "https://img-tc.tapimg.com/market/images/FtgRBK5Qb-NPK_tAd5fsfD8Wt77a.png",
+            "https://img-tc.tapimg.com/market/images/FrRKgU0hDMtv770_NDbUzm3Gz0OB.png",
+            "https://img-tc.tapimg.com/market/images/FnSNbR2meN4zfK6Tavb_DgfgdXLS.png"
+          ],
+          "bannerUrl": "https://img-tc.tapimg.com/market/images/FlBWlzdDKyKjHhxrCA-TaXGspKRI.jpg"
+        }
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:27.892Z",
+      "stage": "resolve_gameplay_demo_video",
+      "data": {
+        "source": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+        "sourceType": "remote",
+        "appId": 835258,
+        "developerId": 248818
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:27.894Z",
+      "stage": "resolve_gameplay_demo_video_cache_lookup",
+      "data": {}
+    },
+    {
+      "time": "2026-03-29T03:48:28.895Z",
+      "stage": "resolve_gameplay_demo_video_remote_delegate",
+      "data": {
+        "source": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+        "videoDownloadUrl": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+        "fileName": "1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4"
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:28.895Z",
+      "stage": "resolve_gameplay_demo_video_upload_start",
+      "data": {
+        "source": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+        "sourceType": "remote",
+        "fileName": "1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+        "videoDownloadUrl": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+        "remoteMetadata": {
+          "finalUrl": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+          "etag": "\"4A072F1831017E014546EFBDE0159175\"",
+          "lastModified": "Sun, 29 Mar 2026 03:47:08 GMT",
+          "contentLength": 63023046
+        }
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:28.952Z",
+      "stage": "resolve_gameplay_demo_video_get_token",
+      "data": {
+        "ms": 57
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:39.132Z",
+      "stage": "resolve_gameplay_demo_video_qiniu_upload",
+      "data": {
+        "ms": 10180,
+        "key": "lie5wOBufdBr6PvdKQ2K6OTer2vw",
+        "sha256": "b6ec8388cf12b3ec00856e24329536e0183967b42292b7f6b4fd12668ce924ca",
+        "fileSize": 63023046,
+        "via": "map_server"
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:39.248Z",
+      "stage": "resolve_gameplay_demo_video_register",
+      "data": {
+        "ms": 116
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:39.256Z",
+      "stage": "resolve_gameplay_demo_video_upload_done",
+      "data": {
+        "sourceType": "remote",
+        "fileName": "1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4",
+        "videoId": 5579829,
+        "cacheUpdated": true
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:39.256Z",
+      "stage": "submit_spark_request",
+      "data": {
+        "app_id": 835258,
+        "developer_id": 248818,
+        "map_version": "6",
+        "sce_project_id": "p_kl6c",
+        "category": "action",
+        "collection_type": "action",
+        "description": "在这款3D无尽跑酷游戏中，你将操控角色在高速公路上极速狂奔！左右切换三条跑道闪避路障、跳跃横杆、下蹲低空障碍，灵活穿梭收集金币。\n\n穿越非洲草原、南极冰川、丘陵悬崖三大风格迥异的场景，每次场景切换都将迎来惊险刺激的峡谷飞跃！草原上踩背大蓝象挡住去路，冰川中咕咕嘎嘎企鹅列阵拦截，悬崖边熊大虎视眈眈——闪避这些萌系障碍，才能跑得更远！\n\n速度随距离不断攀升，最高可达180km/h，伴随动感十足的视觉特效让你肾上腺素飙升。触发大运货车模式，三车道碾压一切障碍，体验无敌冲刺的爽快感！拾取磁铁自动吸取周围金币，收集爱心恢复血量，挑战你的极限高分！",
+        "screen_orientation": 2,
+        "title": "似腿快跑",
+        "icon": "https://img-tc.tapimg.com/market/images/Ftv-DNN_nAD7v4kQGWx6Zjss4U00.png",
+        "screenshots": [
+          "https://img-tc.tapimg.com/market/images/FtgRBK5Qb-NPK_tAd5fsfD8Wt77a.png",
+          "https://img-tc.tapimg.com/market/images/FrRKgU0hDMtv770_NDbUzm3Gz0OB.png",
+          "https://img-tc.tapimg.com/market/images/FnSNbR2meN4zfK6Tavb_DgfgdXLS.png"
+        ],
+        "banner": "https://img-tc.tapimg.com/market/images/FlBWlzdDKyKjHhxrCA-TaXGspKRI.jpg",
+        "trial_note": "俺变得更强壮了！！！",
+        "app_platforms": "1,2",
+        "gameplay_demo_video_id": 5579829
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:40.148Z",
+      "stage": "submit_spark_response",
+      "data": {
+        "app_id": 835258,
+        "app_title": "似腿快跑",
+        "category": "action",
+        "category_label": "动作",
+        "display_app_title": "动作游戏合集"
+      }
+    },
+    {
+      "time": "2026-03-29T03:48:40.148Z",
+      "stage": "publish_result",
+      "data": {
+        "action": "updated",
+        "status": "pending_review",
+        "game_id": 835258,
+        "message": "成功更新游戏 \"似腿快跑\"",
+        "developer_id": 248818,
+        "config_file_path": "/userspaces/797f30b0-e021-47d5-a78c-2fcee5e9a6f0/workspace/.project/project.json"
+      }
+    }
+  ]
+}

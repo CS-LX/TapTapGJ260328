@@ -1,0 +1,45 @@
+{
+  "$schema": "../schemas/project.schema.json",
+  "project_id": "p_kl6c",
+  "author": {
+    "id": "771520039"
+  },
+  "entry": "main.lua",
+  "version": "1.0.11",
+  "taptap_publish": {
+    "developer_id": 248818,
+    "title": "似腿快跑",
+    "description": "在这款3D无尽跑酷游戏中，你将操控角色在高速公路上极速狂奔！左右切换三条跑道闪避路障、跳跃横杆、下蹲低空障碍，灵活穿梭收集金币。\n\n穿越非洲草原、南极冰川、丘陵悬崖三大风格迥异的场景，每次场景切换都将迎来惊险刺激的峡谷飞跃！草原上踩背大蓝象挡住去路，冰川中咕咕嘎嘎企鹅列阵拦截，悬崖边熊大虎视眈眈——闪避这些萌系障碍，才能跑得更远！\n\n速度随距离不断攀升，最高可达180km/h，伴随动感十足的视觉特效让你肾上腺素飙升。触发大运货车模式，三车道碾压一切障碍，体验无敌冲刺的爽快感！拾取磁铁自动吸取周围金币，收集爱心恢复血量，挑战你的极限高分！",
+    "category": "action",
+    "screen_orientation": "landscape",
+    "collection_type": "sce",
+    "trial_note": "俺变得更强壮了！！！",
+    "app_platforms": "1,2",
+    "app_id": 835258,
+    "miniapp_id": "tapmcmu6gmn7y5mw4b",
+    "gameplay_demo_video_source": "https://tapcode-sce.spark.xd.com/videos/p_kl6c/1774756019412-rec_6b16049a-0829-4c76-ac8a-deab002ec5ef.mp4"
+  },
+  "assets": {
+    "icon": "./game_material/icon.png",
+    "screenshots": [
+      "./game_material/SCREENSHOT_2026-03-29T03-07-31_01.png",
+      "./game_material/SCREENSHOT_2026-03-29T03-07-31_02.png",
+      "./game_material/SCREENSHOT_2026-03-29T03-07-31_03.png"
+    ],
+    "promotional_image": "./game_material/PROMO_2026-03-29T03-07-31_01.jpg",
+    "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/p_kl6c/icon.png",
+    "screenshot_urls": [
+      "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_01.png",
+      "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_02.png",
+      "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_03.png"
+    ],
+    "promotional_image_url": "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/PROMO_2026-03-29T03-07-31_01.jpg"
+  },
+  "metadata": {
+    "updated_at": "2026-03-29T06:00:28.299Z"
+  },
+  "test_qrcode": {
+    "url": "https://tapcode-sce.spark.xd.com/qrcode/p_kl6c_1774764028165.png",
+    "generated_at": "2026-03-29T06:00:28.299Z"
+  }
+}
