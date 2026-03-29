@@ -491,12 +491,12 @@ function World.UpdateObstacles(dt)
     for i, obs in ipairs(State.obstacles) do
         local obsZ = obs.z
 
-        -- 玩家近距离闪避动物障碍时播放音效（必须在相邻轨道内才触发）
+        -- 跳跃越过动物障碍时播放音效（必须在同车道跳跃中才触发）
         if not obs.passed and obsZ < playerZ - 1.0 then
             obs.passed = true
-            if not obs.hit and obs.obsType == Config.OBS_BLOCK then
+            if not obs.hit and obs.obsType == Config.OBS_BLOCK and State.isJumping then
                 local playerLane = math.floor((State.playerNode.position.x / Config.LANE_WIDTH) + 0.5)
-                if math.abs(playerLane - (obs.lane or 0)) <= 1 then
+                if playerLane == (obs.lane or 0) then
                     if obs.biome == 1 then
                         SFX.Play("elephant.ogg", 0.5)
                     elseif obs.biome == 2 then
