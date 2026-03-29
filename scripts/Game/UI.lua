@@ -241,13 +241,17 @@ function GameUI.DrawMenu(w, h)
     nvgText(vg, w/2 + sloganSlide, sloganY, MENU_SLOGANS[sloganIdx])
 
     -- ================================================================
-    -- 开始提示文字（闪烁呼吸）
+    -- 开始提示文字（闪烁呼吸，更醒目）
     -- ================================================================
-    local promptY = h * 0.60
-    local promptAlpha = math.floor(140 + math.sin(t * 3.5) * 115)
-    nvgFontSize(vg, 26)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(promptAlpha * 0.5)))
-    nvgText(vg, w/2 + 1, promptY + 1, "按下空格，来一局")
+    local promptY = h * 0.50
+    local promptAlpha = math.floor(180 + math.sin(t * 3.5) * 75)
+    nvgFontSize(vg, 32)
+    -- 厚描边
+    for _, off in ipairs({{-2,-2},{2,-2},{-2,2},{2,2},{0,-2},{0,2},{-2,0},{2,0}}) do
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, promptAlpha))
+        nvgText(vg, w/2 + off[1], promptY + off[2], "按下空格，来一局")
+    end
+    -- 亮白主体
     nvgFillColor(vg, nvgRGBA(255, 255, 255, promptAlpha))
     nvgText(vg, w/2, promptY, "按下空格，来一局")
 

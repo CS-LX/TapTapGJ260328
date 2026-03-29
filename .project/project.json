@@ -5,7 +5,7 @@
     "id": "771520039"
   },
   "entry": "main.lua",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "taptap_publish": {
     "developer_id": 248818,
     "title": "似腿快跑",
@@ -22,21 +22,21 @@
   "assets": {
     "icon": "./game_material/icon.png",
     "screenshots": [
-      "./game_material/SCREENSHOT_2026-03-29T08-02-11_01.png",
+      "./game_material/screenshot_1.png",
       "./game_material/SCREENSHOT_2026-03-29T03-07-31_02.png",
       "./game_material/SCREENSHOT_2026-03-29T03-07-31_03.png"
     ],
     "promotional_image": "./game_material/PROMO_2026-03-29T03-07-31_01.jpg",
     "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/p_kl6c/icon.png",
     "screenshot_urls": [
-      "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T08-02-11_01.png",
+      "https://tapcode-sce.spark.xd.com/assets/game_material/p_kl6c/screenshot_1.png",
       "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_02.png",
       "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/SCREENSHOT_2026-03-29T03-07-31_03.png"
     ],
     "promotional_image_url": "https://tapcode-sce.spark.xd.com/assets/game_material/似腿快跑/PROMO_2026-03-29T03-07-31_01.jpg"
   },
   "metadata": {
-    "updated_at": "2026-03-29T08:02:13.911Z"
+    "updated_at": "2026-03-29T09:34:24.941Z"
   },
   "test_qrcode": {
     "url": "https://tapcode-sce.spark.xd.com/qrcode/p_kl6c_1774771243574.png",
