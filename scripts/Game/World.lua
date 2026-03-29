@@ -459,8 +459,12 @@ function World.UpdateObstacles(dt)
     while State.nextObstacleZ < playerZ + Config.SPAWN_DISTANCE do
         State.nextObstacleZ = Canyon.SkipCanyon(State.nextObstacleZ, 30)
         World.SpawnObstacle(State.nextObstacleZ)
+        -- 非线性难度曲线：用平方根缩放替代线性缩放
+        -- 线性：满速时 speedRatio ≈ 4.17，间距拉到 4 倍，地图过空
+        -- 平方根：满速时 spacingRatio ≈ 2.04，间距仅 2 倍，保持紧凑又可反应
         local speedRatio = State.runSpeed / Config.START_SPEED
-        State.nextObstacleZ = State.nextObstacleZ + (Config.OBSTACLE_INTERVAL + math.random() * 8) * speedRatio
+        local spacingRatio = math.sqrt(speedRatio)
+        State.nextObstacleZ = State.nextObstacleZ + (Config.OBSTACLE_INTERVAL + math.random() * 8) * spacingRatio
     end
 
     -- 滚木弹跳+横向滚动动画（基于距离，玩家到达时滚木正在上升）
