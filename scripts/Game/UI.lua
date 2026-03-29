@@ -587,27 +587,54 @@ function GameUI.DrawHUD(w, h, dt)
     nvgFillColor(vg, nvgRGBA(0, 0, 0, 100))
     nvgFill(vg)
 
-    -- 爱心血条（受击时抖动）
+    -- 爱心血条（大号醒目 + 底板 + 受击抖动 + 低血量脉冲）
     nvgSave(vg)
     if heartShakeTimer > 0 then
         local shakeX = math.sin(heartShakeTimer * 40) * heartShakeTimer * 15
         local shakeY = math.cos(heartShakeTimer * 35) * heartShakeTimer * 8
         nvgTranslate(vg, shakeX, shakeY)
     end
-    nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
-    nvgFontSize(vg, 28)
-    local heartStr = ""
+
+    local heartSize = 32
+    local heartGap = 4
+    local heartW = Config.MAX_HEALTH * (heartSize + heartGap) + 16
+    local heartH = 40
+    local heartX = 10
+    local heartY = 5
+
+    -- 底板背景（圆角半透明）
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, heartX, heartY, heartW, heartH, 8)
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, 140))
+    nvgFill(vg)
+
+    -- 低血量时底板边框脉冲红光
+    if State.health <= 2 and State.health > 0 then
+        local t = GetTime():GetElapsedTime()
+        local pulse = math.floor(80 + math.sin(t * 5) * 80)
+        nvgStrokeWidth(vg, 2)
+        nvgStrokeColor(vg, nvgRGBA(255, 50, 30, pulse))
+        nvgStroke(vg)
+    end
+
+    -- 逐颗绘制心（大号 emoji）
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFontSize(vg, heartSize)
     for i = 1, Config.MAX_HEALTH do
+        local cx = heartX + 12 + (i - 1) * (heartSize + heartGap) + heartSize / 2
+        local cy = heartY + heartH / 2
         if i <= State.health then
-            heartStr = heartStr .. "❤️"
+            nvgFillColor(vg, nvgRGBA(255, 255, 255, 255))
+            nvgText(vg, cx, cy, "❤️")
         else
-            heartStr = heartStr .. "🖤"
+            nvgFillColor(vg, nvgRGBA(150, 150, 150, 120))
+            nvgText(vg, cx, cy, "🖤")
         end
     end
-    nvgText(vg, 20, 25, heartStr)
     nvgRestore(vg)
 
     -- 得分
+    nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
     nvgFontSize(vg, 24)
     nvgFillColor(vg, nvgRGBA(255, 255, 255, 230))
     nvgText(vg, 20, 55, "得分: " .. State.score)

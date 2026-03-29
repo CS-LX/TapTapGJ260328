@@ -1,21 +1,2 @@
-# Engine internals (read-only, not user code)
-engine-docs/
-examples/
-templates/
-urhox-libs/
-schemas/
-prompts/
-lua-tools/
-.emmylua/
-.claude/
-
-# Build & runtime
-dist/
 .build/
-.tmp/
-.project/
-logs/
-
-# OS files
-.DS_Store
-Thumbs.db
+dist/

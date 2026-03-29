@@ -1,0 +1,23 @@
+{
+  "$schema": "../schemas/project.schema.json",
+  "project_id": "p_kl6c",
+  "author": {
+    "id": "771520039"
+  },
+  "entry": "main.lua",
+  "version": "1.0.1",
+  "taptap_publish": {
+    "title": "地铁跑酷",
+    "description": "3D无尽跑酷游戏，左右切换跑道，跳跃和下蹲躲避障碍，收集金币冲刺高分！",
+    "category": "action",
+    "screen_orientation": "landscape",
+    "collection_type": "sce",
+    "trial_note": "<developer's note>",
+    "app_platforms": "1,2"
+  },
+  "assets": {
+    "icon": "",
+    "screenshots": [],
+    "promotional_image": ""
+  }
+}

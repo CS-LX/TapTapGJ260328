@@ -45,7 +45,7 @@ Config.CAM_OFFSET       = Vector3(0, 6.0, -10.0)  -- 相机偏移
 Config.CAM_LOOK_AHEAD   = 8.0          -- 相机前瞻
 
 -- 血量配置
-Config.MAX_HEALTH          = 3
+Config.MAX_HEALTH          = 5
 Config.INVINCIBLE_DURATION = 1.5
 
 -- 场景切换配置
