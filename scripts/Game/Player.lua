@@ -890,7 +890,7 @@ function Player.UpdateMenuAnimation(dt)
     local camZ = -orbitRadius + math.cos(orbitAngle) * 0.5
 
     State.cameraNode.position = Vector3(camX, camHeight, camZ)
-    local lookTarget = Vector3(0.3, 1.5, 2.0)
+    local lookTarget = Vector3(0.3, 2.8, 2.0)
     local dir = lookTarget - State.cameraNode.position
     local pitch = math.deg(math.atan(dir.y, math.sqrt(dir.x * dir.x + dir.z * dir.z)))
     local yaw = math.deg(math.atan(dir.x, dir.z))
