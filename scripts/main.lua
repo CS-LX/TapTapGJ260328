@@ -61,6 +61,9 @@ function Start()
     -- 启动时加载排行榜
     Leaderboard.Fetch()
 
+    -- 从云端加载历史最高分
+    Leaderboard.LoadHighScore()
+
     -- 订阅事件
     SubscribeToEvent("Update", "HandleUpdate")
     SubscribeToEvent(State.nvgCtx, "NanoVGRender", "HandleNanoVGRender")

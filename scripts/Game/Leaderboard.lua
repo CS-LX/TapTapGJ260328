@@ -20,6 +20,26 @@ local FETCH_COOLDOWN = 10   -- 最短请求间隔（秒）
 -- 数据接口
 -- ============================================================================
 
+--- 启动时从云端加载历史最高分到 State.highScore
+function Leaderboard.LoadHighScore()
+    if not clientCloud then
+        print("[Leaderboard] clientCloud not available, skip loading high score")
+        return
+    end
+    clientCloud:Get("high_score", {
+        ok = function(values, iscores)
+            local cloudScore = iscores.high_score or 0
+            if cloudScore > State.highScore then
+                State.highScore = cloudScore
+                print("[Leaderboard] Loaded cloud high score: " .. cloudScore)
+            end
+        end,
+        error = function(code, reason)
+            print("[Leaderboard] Load high score failed: " .. tostring(reason))
+        end
+    })
+end
+
 --- 上传分数（游戏结束时调用）
 function Leaderboard.UploadScore(score)
     if not clientCloud then
