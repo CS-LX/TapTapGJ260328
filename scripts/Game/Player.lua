@@ -399,19 +399,27 @@ function Player.Update(dt)
         pos.x = State.targetLaneX
     end
 
+    -- 虚空宽限期：停留超过 0.15 秒才坠落
+    local VOID_GRACE = 0.15
+
     if State.isJumping then
         pos.y = pos.y + State.playerVelocityY * dt
         State.playerVelocityY = State.playerVelocityY + Config.GRAVITY * dt
         if pos.y <= 0 then
             if overVoid then
-                -- 无地面（峡谷或窟窿），进入虚空坠落
-                State.isVoidFalling = true
-                State.voidFallTimer = 0
+                -- 落地到虚空区域，开始/累加宽限计时
+                pos.y = 0
                 State.isJumping = false
-                State.isSliding = false
-                State.slideTimer = 0
-                -- 保持当前下落速度继续坠落
-                print("[Void] Player fell into void!")
+                State.playerVelocityY = 0
+                State.voidGraceTimer = State.voidGraceTimer + dt
+                if State.voidGraceTimer >= VOID_GRACE then
+                    State.isVoidFalling = true
+                    State.voidFallTimer = 0
+                    State.voidGraceTimer = 0
+                    State.isSliding = false
+                    State.slideTimer = 0
+                    print("[Void] Player fell into void!")
+                end
             else
                 pos.y = 0
                 State.isJumping = false
@@ -419,13 +427,22 @@ function Player.Update(dt)
             end
         end
     elseif overVoid then
-        -- 非跳跃状态走入无地面区域（峡谷或窟窿）→ 开始坠落
-        State.isVoidFalling = true
-        State.voidFallTimer = 0
-        State.playerVelocityY = 0
-        State.isSliding = false
-        State.slideTimer = 0
-        print("[Void] Player walked into void!")
+        -- 非跳跃状态走在无地面区域，累加宽限计时
+        State.voidGraceTimer = State.voidGraceTimer + dt
+        if State.voidGraceTimer >= VOID_GRACE then
+            State.isVoidFalling = true
+            State.voidFallTimer = 0
+            State.voidGraceTimer = 0
+            State.playerVelocityY = 0
+            State.isSliding = false
+            State.slideTimer = 0
+            print("[Void] Player walked into void!")
+        end
+    end
+
+    -- 脚下有地面时重置宽限计时
+    if not overVoid then
+        State.voidGraceTimer = 0
     end
 
     if State.isSliding then

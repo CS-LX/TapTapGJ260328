@@ -93,6 +93,7 @@ State.nextHoleZ = 60.0          -- 下一个窟窿生成位置
 -- 虚空坠落死亡
 State.isVoidFalling = false     -- 是否正在坠入峡谷
 State.voidFallTimer = 0.0       -- 坠落计时器
+State.voidGraceTimer = 0.0      -- 虚空宽限计时（停留超过阈值才坠落）
 
 -- 大运大货车
 State.isDayunActive = false     -- 大运是否激活
@@ -184,6 +185,7 @@ function State.ClearAll()
     State.autoJumpInputLock = 0.0
     State.isVoidFalling = false
     State.voidFallTimer = 0.0
+    State.voidGraceTimer = 0.0
     -- 大运重置
     State.isDayunActive = false
     State.dayunNextThreshold = Config.DAYUN_SCORE_THRESHOLD
