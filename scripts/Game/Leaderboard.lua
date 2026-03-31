@@ -20,24 +20,39 @@ local FETCH_COOLDOWN = 10   -- 最短请求间隔（秒）
 -- 数据接口
 -- ============================================================================
 
---- 启动时从云端加载历史最高分到 State.highScore
+--- 启动时从云端加载历史最高分 + 累计统计到 State
 function Leaderboard.LoadHighScore()
     if not clientCloud then
-        print("[Leaderboard] clientCloud not available, skip loading high score")
+        print("[Leaderboard] clientCloud not available, skip loading")
         return
     end
-    clientCloud:Get("high_score", {
-        ok = function(values, iscores)
-            local cloudScore = iscores.high_score or 0
-            if cloudScore > State.highScore then
-                State.highScore = cloudScore
-                print("[Leaderboard] Loaded cloud high score: " .. cloudScore)
+    clientCloud:BatchGet()
+        :Key("high_score")
+        :Key("total_distance")
+        :Key("total_score")
+        :Key("total_coins")
+        :Key("total_hearts")
+        :Key("total_magnets")
+        :Key("total_dayun")
+        :Fetch({
+            ok = function(values, iscores)
+                local hs = iscores.high_score or 0
+                if hs > State.highScore then
+                    State.highScore = hs
+                    print("[Leaderboard] Loaded cloud high score: " .. hs)
+                end
+                State.totalDistance = iscores.total_distance or 0
+                State.totalScore   = iscores.total_score or 0
+                State.totalCoins   = iscores.total_coins or 0
+                State.totalHearts  = iscores.total_hearts or 0
+                State.totalMagnets = iscores.total_magnets or 0
+                State.totalDayun   = iscores.total_dayun or 0
+                print("[Leaderboard] Loaded cloud stats OK")
+            end,
+            error = function(code, reason)
+                print("[Leaderboard] Load stats failed: " .. tostring(reason))
             end
-        end,
-        error = function(code, reason)
-            print("[Leaderboard] Load high score failed: " .. tostring(reason))
-        end
-    })
+        })
 end
 
 --- 上传分数（游戏结束时调用）
@@ -70,6 +85,43 @@ function Leaderboard.UploadScore(score)
             })
         end
     })
+end
+
+--- 上传累计统计（游戏结束时调用，增量累加）
+function Leaderboard.UploadStats()
+    if not clientCloud then return end
+
+    local dist = math.floor(State.distanceTraveled)
+    local score = State.score
+    local coins = State.coins
+    local hearts = State.heartsCollected
+    local magnets = State.magnetsCollected
+    local dayun = State.dayunCount
+
+    -- 本地先累加（UI 立即可见）
+    State.totalDistance = State.totalDistance + dist
+    State.totalScore   = State.totalScore + score
+    State.totalCoins   = State.totalCoins + coins
+    State.totalHearts  = State.totalHearts + hearts
+    State.totalMagnets = State.totalMagnets + magnets
+    State.totalDayun   = State.totalDayun + dayun
+
+    -- 云端增量写入
+    clientCloud:BatchSet()
+        :Add("total_distance", dist)
+        :Add("total_score", score)
+        :Add("total_coins", coins)
+        :Add("total_hearts", hearts)
+        :Add("total_magnets", magnets)
+        :Add("total_dayun", dayun)
+        :Save("game_stats", {
+            ok = function()
+                print("[Leaderboard] Stats uploaded OK")
+            end,
+            error = function(code, reason)
+                print("[Leaderboard] Stats upload failed: " .. tostring(reason))
+            end
+        })
 end
 
 --- 加载排行榜数据

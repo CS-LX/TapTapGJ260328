@@ -70,6 +70,7 @@ function Heart.Update(dt)
         end,
         onCollect = function(item)
             SFX.Play("wow_sparkle.ogg")
+            State.heartsCollected = State.heartsCollected + 1
             local p = item.node.position
             -- 飞心动画：从捡到位置飞向左上角血条
             GameUI.TriggerHealFlyHeart(Vector3(p.x, p.y + 1.0, p.z), State.health + 1)

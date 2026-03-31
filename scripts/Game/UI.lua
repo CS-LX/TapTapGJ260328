@@ -54,8 +54,9 @@ function GameUI.Render(eventType, eventData)
         gameOverAnimT = 0
         goParticles = {}
         celebAnimT = 0
-        -- 上传分数并刷新排行榜
+        -- 上传分数、累计统计并刷新排行榜
         Leaderboard.UploadScore(State.score)
+        Leaderboard.UploadStats()
         Leaderboard.Fetch()
     end
     prevGameState = State.gameState
@@ -1042,6 +1043,13 @@ function GameUI.DrawGameOver(w, h)
     Leaderboard.Draw(vg, w, h, lbAlpha)
 
     -- ================================================================
+    -- 左侧统计面板（与排行榜对称，同步淡入）
+    -- ================================================================
+    if lbAlpha > 0 then
+        GameUI.DrawStatsPanel(vg, w, h, lbAlpha)
+    end
+
+    -- ================================================================
     -- 重新开始按钮（胶囊按钮，与菜单风格统一）
     -- ================================================================
     if animT > 1.2 then
@@ -1087,6 +1095,111 @@ function GameUI.DrawGameOver(w, h)
         nvgText(vg, w / 2, btnY + btnH / 2, "按 空格 再来一局")
 
         nvgRestore(vg)
+    end
+
+    nvgRestore(vg)
+end
+
+-- ============================================================================
+-- 左侧累计统计面板（与排行榜镜像风格）
+-- ============================================================================
+
+--- 格式化大数字（千分位）
+local function formatNumber(n)
+    local s = tostring(math.floor(n))
+    local len = #s
+    if len <= 3 then return s end
+    local parts = {}
+    local rem = len % 3
+    if rem > 0 then table.insert(parts, s:sub(1, rem)) end
+    for i = rem + 1, len, 3 do
+        table.insert(parts, s:sub(i, i + 2))
+    end
+    return table.concat(parts, ",")
+end
+
+function GameUI.DrawStatsPanel(vg, w, h, panelAlpha)
+    if panelAlpha <= 0 then return end
+
+    local t = GetTime():GetElapsedTime()
+
+    -- 面板尺寸和位置（左侧，与排行榜对称）
+    local panelW = math.min(320, w * 0.32)
+    local panelH = math.min(420, h * 0.72)
+    local panelX = 20
+    local panelY = (h - panelH) / 2
+
+    nvgSave(vg)
+
+    -- 面板背景
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, panelX, panelY, panelW, panelH, 14)
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(160 * panelAlpha / 255)))
+    nvgFill(vg)
+
+    -- 边框
+    local borderPulse = math.sin(t * 2) * 0.3 + 0.7
+    nvgStrokeWidth(vg, 1.5)
+    nvgStrokeColor(vg, nvgRGBA(255, 200, 80,
+        math.floor(100 * borderPulse * panelAlpha / 255)))
+    nvgStroke(vg)
+
+    -- 标题
+    nvgFontFace(vg, "sans")
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFontSize(vg, 28)
+
+    local titleY = panelY + 32
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(180 * panelAlpha / 255)))
+    nvgText(vg, panelX + panelW / 2 + 1, titleY + 1, "📊 个人统计")
+    nvgFillColor(vg, nvgRGBA(255, 210, 60, panelAlpha))
+    nvgText(vg, panelX + panelW / 2, titleY, "📊 个人统计")
+
+    -- 分割线
+    nvgBeginPath(vg)
+    local lineY = titleY + 24
+    nvgMoveTo(vg, panelX + 16, lineY)
+    nvgLineTo(vg, panelX + panelW - 16, lineY)
+    nvgStrokeColor(vg, nvgRGBA(255, 200, 80, math.floor(60 * panelAlpha / 255)))
+    nvgStrokeWidth(vg, 1)
+    nvgStroke(vg)
+
+    -- 统计项列表
+    local stats = {
+        { icon = "🏃", label = "总距离",   value = formatNumber(State.totalDistance) .. " m",  color = {130, 200, 255} },
+        { icon = "⭐", label = "总得分",   value = formatNumber(State.totalScore),              color = {255, 255, 255} },
+        { icon = "🪙", label = "总金币",   value = formatNumber(State.totalCoins),              color = {255, 220, 50} },
+        { icon = "❤️", label = "总心心",   value = formatNumber(State.totalHearts),             color = {255, 100, 120} },
+        { icon = "🧲", label = "总磁铁",   value = formatNumber(State.totalMagnets),            color = {80, 160, 255} },
+        { icon = "🚚", label = "总大运",   value = formatNumber(State.totalDayun),              color = {255, 180, 50} },
+    }
+
+    local rowH = 48
+    local contentY = lineY + 20
+
+    for i, stat in ipairs(stats) do
+        local rowY = contentY + (i - 1) * rowH + rowH / 2
+
+        -- 交替行背景
+        if i % 2 == 0 then
+            nvgBeginPath(vg)
+            nvgRoundedRect(vg, panelX + 8, rowY - rowH / 2 + 2,
+                panelW - 16, rowH - 4, 4)
+            nvgFillColor(vg, nvgRGBA(255, 255, 255, math.floor(8 * panelAlpha / 255)))
+            nvgFill(vg)
+        end
+
+        -- 图标 + 标签（左侧）
+        nvgTextAlign(vg, NVG_ALIGN_LEFT + NVG_ALIGN_MIDDLE)
+        nvgFontSize(vg, 22)
+        nvgFillColor(vg, nvgRGBA(220, 230, 255, panelAlpha))
+        nvgText(vg, panelX + 18, rowY, stat.icon .. " " .. stat.label)
+
+        -- 数值（右侧，带颜色）
+        nvgTextAlign(vg, NVG_ALIGN_RIGHT + NVG_ALIGN_MIDDLE)
+        nvgFontSize(vg, 20)
+        nvgFillColor(vg, nvgRGBA(stat.color[1], stat.color[2], stat.color[3], panelAlpha))
+        nvgText(vg, panelX + panelW - 16, rowY, stat.value)
     end
 
     nvgRestore(vg)

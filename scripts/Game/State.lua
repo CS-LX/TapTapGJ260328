@@ -34,6 +34,19 @@ State.score = 0                -- 得分
 State.coins = 0                -- 金币数
 State.highScore = 0            -- 最高分
 
+-- 本局道具计数
+State.heartsCollected = 0      -- 本局吃到心心
+State.magnetsCollected = 0     -- 本局吃到磁铁
+State.dayunCount = 0           -- 本局大运次数
+
+-- 云端累计统计（启动时从云端加载）
+State.totalDistance = 0        -- 总距离
+State.totalScore = 0           -- 总得分
+State.totalCoins = 0           -- 总金币
+State.totalHearts = 0          -- 总心心
+State.totalMagnets = 0         -- 总磁铁
+State.totalDayun = 0           -- 总大运次数
+
 -- 障碍物和金币对象池
 State.obstacles = {}           -- 活跃障碍物列表
 State.coinNodes = {}           -- 活跃金币列表

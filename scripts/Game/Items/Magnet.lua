@@ -100,6 +100,7 @@ function Magnet.Update(dt)
     }, {
         onCollect = function(item)
             SFX.Play("mag.ogg")
+            State.magnetsCollected = State.magnetsCollected + 1
             Magnet.active = true
             Magnet.timer = Magnet.DURATION
             local p = item.node.position

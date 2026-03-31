@@ -225,6 +225,9 @@ function Player.StartGame()
     State.distanceTraveled = 0.0
     State.score = 0
     State.coins = 0
+    State.heartsCollected = 0
+    State.magnetsCollected = 0
+    State.dayunCount = 0
     State.playerRunAngle = 0.0
     State.health = Config.MAX_HEALTH
     State.isInvincible = false

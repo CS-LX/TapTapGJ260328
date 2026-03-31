@@ -374,6 +374,7 @@ end
 
 function Dayun.Activate()
     State.isDayunActive = true
+    State.dayunCount = State.dayunCount + 1
     -- 设置下次触发阈值（当前分数 + 间隔）
     State.dayunNextThreshold = State.score + Config.DAYUN_REPEAT_INTERVAL
     Dayun.timer = Config.DAYUN_DURATION
