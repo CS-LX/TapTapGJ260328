@@ -108,180 +108,164 @@ function GameUI.DrawMenu(w, h)
     local dt = GetTime():GetTimeStep()
 
     -- ================================================================
-    -- 动感背景：多层渐变 + 呼吸色变
+    -- 背景：干净的暗色半透明覆盖（3D场景做底）
     -- ================================================================
-    -- 底色脉冲（暗紫 ↔ 暗蓝交替）
-    local bgPulse = math.sin(t * 0.8) * 0.5 + 0.5
-    local bgR = math.floor(5 + bgPulse * 15)
-    local bgG = math.floor(5 + (1 - bgPulse) * 10)
-    local bgB = math.floor(20 + bgPulse * 25)
     nvgBeginPath(vg)
     nvgRect(vg, 0, 0, w, h)
     local bgGrad = nvgLinearGradient(vg, 0, 0, 0, h,
-        nvgRGBA(0, 0, 0, 180), nvgRGBA(bgR, bgG, bgB, 100))
+        nvgRGBA(0, 0, 10, 120), nvgRGBA(5, 0, 20, 80))
     nvgFillPaint(vg, bgGrad)
     nvgFill(vg)
 
-    -- ================================================================
-    -- 背景速度线（更密集、更亮）
-    -- ================================================================
+    -- 淡速度线（低调氛围）
     GameUI.DrawMenuSpeedLines(vg, w, h, t)
 
-    -- ================================================================
-    -- 底部扫光（从左到右扫过的光带）
-    -- ================================================================
-    local sweepX = ((t * 0.3) % 1.4 - 0.2) * w
-    local sweepW = w * 0.25
+    -- 柔和扫光
+    local sweepX = ((t * 0.2) % 1.6 - 0.3) * w
+    local sweepW = w * 0.3
     nvgBeginPath(vg)
     nvgRect(vg, sweepX, 0, sweepW, h)
-    local sweepGrad = nvgLinearGradient(vg, sweepX, 0, sweepX + sweepW, 0,
-        nvgRGBA(255, 200, 80, 0), nvgRGBA(255, 200, 80, 18))
-    nvgFillPaint(vg, sweepGrad)
-    nvgFill(vg)
-    nvgBeginPath(vg)
-    nvgRect(vg, sweepX + sweepW * 0.3, 0, sweepW * 0.4, h)
-    local sweepGrad2 = nvgLinearGradient(vg, sweepX + sweepW * 0.3, 0, sweepX + sweepW * 0.7, 0,
-        nvgRGBA(255, 220, 100, 20), nvgRGBA(255, 220, 100, 0))
-    nvgFillPaint(vg, sweepGrad2)
+    nvgFillPaint(vg, nvgLinearGradient(vg, sweepX, 0, sweepX + sweepW, 0,
+        nvgRGBA(255, 200, 80, 0), nvgRGBA(255, 200, 80, 12)))
     nvgFill(vg)
 
-    -- ================================================================
-    -- 飘过的 Emoji 装饰粒子
-    -- ================================================================
+    -- 少量 Emoji 点缀
     GameUI.UpdateAndDrawMenuParticles(vg, w, h, t)
 
     -- ================================================================
-    -- 火花粒子（从标题位置迸发）
-    -- ================================================================
-    GameUI.UpdateAndDrawMenuSparks(vg, w, h, t, dt)
-
-    -- ================================================================
-    -- 主标题：「似腿快跑！！」—— 更炸裂的效果
+    -- 主标题：干净白金风格
     -- ================================================================
     nvgFontFace(vg, "sans")
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
 
-    local titleY = h * 0.26
-    -- 更夸张的弹跳 + 左右晃动
-    local bounce = math.sin(t * 3.0) * 10 + math.sin(t * 7.0) * 3
-    local tilt = math.sin(t * 2.2) * 4
+    local titleY = h * 0.22
+    local bounce = math.sin(t * 2.5) * 5
+    local tilt = math.sin(t * 1.8) * 2
 
-    -- 超大模糊光晕（彩色脉冲）
-    local glowPhase = t * 5.0
-    local glowR = math.floor(200 + math.sin(glowPhase) * 55)
-    local glowG = math.floor(120 + math.sin(glowPhase + 2.1) * 80)
-    local glowB = math.floor(30 + math.sin(glowPhase + 4.2) * 30)
-    local glowPulse = 0.5 + math.sin(t * 4) * 0.5
-    nvgFontSize(vg, 80)
-    nvgFillColor(vg, nvgRGBA(glowR, glowG, glowB, math.floor(glowPulse * 50)))
-    nvgText(vg, w/2 + tilt, titleY + bounce, "似腿快跑！！")
-    -- 第二层光晕（更大更淡）
-    nvgFontSize(vg, 88)
-    nvgFillColor(vg, nvgRGBA(glowR, glowG, glowB, math.floor(glowPulse * 25)))
-    nvgText(vg, w/2 + tilt, titleY + bounce, "似腿快跑！！")
+    -- 柔和金色光晕
+    local glowA = math.floor(30 + math.sin(t * 2) * 15)
+    nvgFontSize(vg, 76)
+    nvgFillColor(vg, nvgRGBA(255, 200, 60, glowA))
+    nvgText(vg, w/2, titleY + bounce, "似腿快跑！！")
 
-    -- 厚实黑色描边
-    nvgFontSize(vg, 64)
-    local outlineOffsets = {
-        {-3,-3},{3,-3},{-3,3},{3,3},{0,-4},{0,4},{-4,0},{4,0},
-        {-2,-4},{2,-4},{-2,4},{2,4},{-4,-2},{4,-2},{-4,2},{4,2},
-    }
-    for _, off in ipairs(outlineOffsets) do
-        nvgFillColor(vg, nvgRGBA(0, 0, 0, 220))
+    -- 黑色描边
+    nvgFontSize(vg, 58)
+    for _, off in ipairs({{-3,-3},{3,-3},{-3,3},{3,3},{0,-3},{0,3},{-3,0},{3,0}}) do
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, 200))
         nvgText(vg, w/2 + off[1] + tilt, titleY + off[2] + bounce, "似腿快跑！！")
     end
 
-    -- 主标题：彩虹色循环！
-    local hueShift = (t * 60) % 360
-    local titleR, titleG, titleB = GameUI.HSVtoRGB(hueShift, 0.5, 1.0)
-    nvgFillColor(vg, nvgRGBA(titleR, titleG, titleB, 255))
+    -- 主体：白色 + 微金色渐变感
+    nvgFillColor(vg, nvgRGBA(255, 245, 230, 255))
     nvgText(vg, w/2 + tilt, titleY + bounce, "似腿快跑！！")
 
-    -- 高光叠加层（白色，随脉冲闪烁）
-    local highlightA = math.floor(math.max(0, math.sin(t * 6) * 80))
-    nvgFillColor(vg, nvgRGBA(255, 255, 255, highlightA))
+    -- 顶部高光
+    local hlA = math.floor(math.max(0, math.sin(t * 3) * 50))
+    nvgFillColor(vg, nvgRGBA(255, 255, 255, hlA))
     nvgText(vg, w/2 + tilt, titleY + bounce - 1, "似腿快跑！！")
 
     -- ================================================================
-    -- 副标题（游戏类型标签）
+    -- 副标题
     -- ================================================================
-    local subY = titleY + 52 + bounce * 0.3
+    local subY = titleY + 46 + bounce * 0.2
     nvgFontSize(vg, 16)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, 120))
-    nvgText(vg, w/2 + 1, subY + 1, "🎮 3D 极速跑酷  ·  无尽冒险")
-    nvgFillColor(vg, nvgRGBA(180, 200, 255, 180))
-    nvgText(vg, w/2, subY, "🎮 3D 极速跑酷  ·  无尽冒险")
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, 100))
+    nvgText(vg, w/2 + 1, subY + 1, "3D 极速跑酷  ·  无尽冒险")
+    nvgFillColor(vg, nvgRGBA(180, 200, 230, 160))
+    nvgText(vg, w/2, subY, "3D 极速跑酷  ·  无尽冒险")
 
     -- ================================================================
-    -- 特色标语轮播（更大更醒目 + 滑入动画）
+    -- 标语轮播（柔和淡入淡出）
     -- ================================================================
-    local sloganCycle = 2.0
+    local sloganCycle = 2.5
     local sloganIdx = math.floor(t / sloganCycle) % #MENU_SLOGANS + 1
     local sloganT = (t % sloganCycle) / sloganCycle
     local sloganAlpha = 255
     local sloganSlide = 0
     if sloganT < 0.15 then
         sloganAlpha = math.floor(sloganT / 0.15 * 255)
-        sloganSlide = math.floor((1.0 - sloganT / 0.15) * 30)
+        sloganSlide = math.floor((1.0 - sloganT / 0.15) * 20)
     elseif sloganT > 0.85 then
         sloganAlpha = math.floor((1.0 - sloganT) / 0.15 * 255)
-        sloganSlide = math.floor(-((sloganT - 0.85) / 0.15) * 30)
     end
 
-    local sloganY = titleY + 80
-    nvgFontSize(vg, 26)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(sloganAlpha * 0.6)))
-    nvgText(vg, w/2 + 2 + sloganSlide, sloganY + 2, MENU_SLOGANS[sloganIdx])
-    -- 标语彩色（根据内容换色）
+    local sloganY = titleY + 76
+    nvgFontSize(vg, 22)
     local sColors = {
-        {100, 220, 255}, {255, 160, 50}, {50, 255, 120}, {255, 80, 80}, {255, 220, 50}
+        {130, 210, 255}, {255, 180, 80}, {80, 230, 140}, {255, 110, 110}, {255, 220, 70}
     }
-    local sc = sColors[sloganIdx] or {180, 230, 255}
+    local sc = sColors[sloganIdx] or {180, 220, 255}
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(sloganAlpha * 0.4)))
+    nvgText(vg, w/2 + 1 + sloganSlide, sloganY + 1, MENU_SLOGANS[sloganIdx])
     nvgFillColor(vg, nvgRGBA(sc[1], sc[2], sc[3], sloganAlpha))
     nvgText(vg, w/2 + sloganSlide, sloganY, MENU_SLOGANS[sloganIdx])
 
     -- ================================================================
-    -- 开始提示文字（闪烁呼吸，更醒目）
+    -- 开始按钮区域（圆角胶囊按钮风格）
     -- ================================================================
-    local promptY = h * 0.50
-    local promptAlpha = math.floor(180 + math.sin(t * 3.5) * 75)
-    nvgFontSize(vg, 32)
-    -- 厚描边
-    for _, off in ipairs({{-2,-2},{2,-2},{-2,2},{2,2},{0,-2},{0,2},{-2,0},{2,0}}) do
-        nvgFillColor(vg, nvgRGBA(0, 0, 0, promptAlpha))
-        nvgText(vg, w/2 + off[1], promptY + off[2], "按下空格，来一局")
-    end
-    -- 亮白主体
-    nvgFillColor(vg, nvgRGBA(255, 255, 255, promptAlpha))
-    nvgText(vg, w/2, promptY, "按下空格，来一局")
+    local btnY = h * 0.48
+    local btnW = math.min(280, w * 0.4)
+    local btnH = 52
+    local btnX = (w - btnW) / 2
+    local btnPulse = math.sin(t * 3) * 0.12 + 1.0  -- 微缩放脉冲
+
+    nvgSave(vg)
+    nvgTranslate(vg, w / 2, btnY + btnH / 2)
+    nvgScale(vg, btnPulse, btnPulse)
+    nvgTranslate(vg, -w / 2, -(btnY + btnH / 2))
+
+    -- 按钮发光底层
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, btnX - 4, btnY - 4, btnW + 8, btnH + 8, btnH / 2 + 4)
+    nvgFillColor(vg, nvgRGBA(255, 200, 60, math.floor(20 + math.sin(t * 4) * 15)))
+    nvgFill(vg)
+
+    -- 按钮主体渐变
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, btnX, btnY, btnW, btnH, btnH / 2)
+    nvgFillPaint(vg, nvgLinearGradient(vg, btnX, btnY, btnX, btnY + btnH,
+        nvgRGBA(255, 200, 50, 200), nvgRGBA(245, 160, 20, 220)))
+    nvgFill(vg)
+
+    -- 按钮顶部高光
+    nvgBeginPath(vg)
+    nvgRoundedRect(vg, btnX + 2, btnY + 2, btnW - 4, btnH / 2, btnH / 4)
+    nvgFillPaint(vg, nvgLinearGradient(vg, 0, btnY, 0, btnY + btnH * 0.5,
+        nvgRGBA(255, 255, 255, 60), nvgRGBA(255, 255, 255, 0)))
+    nvgFill(vg)
+
+    -- 按钮文字
+    nvgFontSize(vg, 26)
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFillColor(vg, nvgRGBA(60, 30, 0, 220))
+    nvgText(vg, w / 2, btnY + btnH / 2 + 1, "按 空格 开始")
+    nvgFillColor(vg, nvgRGBA(80, 40, 0, 255))
+    nvgText(vg, w / 2, btnY + btnH / 2, "按 空格 开始")
+
+    nvgRestore(vg)
 
     -- ================================================================
-    -- 操作教程（醒目卡片）
+    -- 操作教程卡片
     -- ================================================================
     GameUI.DrawMenuTutorial(vg, w, h, t)
 
     -- ================================================================
-    -- 最高分（金色奖杯 + 闪烁星星）
+    -- 最高分（底部金色徽章）
     -- ================================================================
     if State.highScore > 0 then
-        local hsY = h * 0.90
-        local starBlink = math.sin(t * 5) > 0.3 and "⭐" or "✨"
-        local hsText = starBlink .. " 最高分: " .. State.highScore .. " " .. starBlink
-        nvgFontSize(vg, 22)
-        nvgFillColor(vg, nvgRGBA(0, 0, 0, 140))
-        nvgText(vg, w/2 + 1, hsY + 1, hsText)
-        nvgFillColor(vg, nvgRGBA(255, 210, 80, 240))
-        nvgText(vg, w/2, hsY, hsText)
+        local hsY = h * 0.92
+        nvgFontSize(vg, 20)
+        nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, 120))
+        nvgText(vg, w/2 + 1, hsY + 1, "🏆 最高分: " .. State.highScore)
+        nvgFillColor(vg, nvgRGBA(255, 210, 80, 220))
+        nvgText(vg, w/2, hsY, "🏆 最高分: " .. State.highScore)
     end
 
     -- ================================================================
-    -- BGM 开关按钮（右上角）
+    -- BGM 按钮 + 排行榜
     -- ================================================================
     GameUI.DrawBGMButton(vg, w, h)
-
-    -- ================================================================
-    -- 排行榜（右侧面板）
-    -- ================================================================
     Leaderboard.Draw(vg, w, h, 255)
 end
 
@@ -891,149 +875,160 @@ function GameUI.DrawGameOver(w, h)
     local t = GetTime():GetElapsedTime()
     local dt = GetTime():GetTimeStep()
 
-    -- 入场动画计时
     gameOverAnimT = gameOverAnimT + dt
     local animT = gameOverAnimT
     local isNewRecord = State.score >= State.highScore and State.score > 0
 
-    -- ================================================================
-    -- 震屏偏移（刚进入时屏幕震动）
-    -- ================================================================
+    -- 震屏（刚进入时）
     local shakeX, shakeY = 0, 0
-    if animT < 0.5 then
-        local intensity = (1.0 - animT / 0.5) * 8
-        shakeX = math.sin(animT * 50) * intensity
-        shakeY = math.cos(animT * 37) * intensity
+    if animT < 0.4 then
+        local intensity = (1.0 - animT / 0.4) * 6
+        shakeX = math.sin(animT * 45) * intensity
+        shakeY = math.cos(animT * 33) * intensity
     end
     nvgSave(vg)
     nvgTranslate(vg, shakeX, shakeY)
 
     -- ================================================================
-    -- 背景：动态渐变（暗红 → 暗紫，脉冲呼吸）
+    -- 背景：暗色半透明覆盖
     -- ================================================================
-    local bgPulse = math.sin(t * 1.2) * 0.5 + 0.5
     nvgBeginPath(vg)
     nvgRect(vg, -10, -10, w + 20, h + 20)
-    local bgGrad = nvgLinearGradient(vg, 0, 0, 0, h,
-        nvgRGBA(math.floor(30 + bgPulse * 20), 0, 0, 200),
-        nvgRGBA(math.floor(15 + bgPulse * 10), 0, math.floor(20 + bgPulse * 15), 180))
-    nvgFillPaint(vg, bgGrad)
+    nvgFillPaint(vg, nvgLinearGradient(vg, 0, 0, 0, h,
+        nvgRGBA(15, 0, 5, 190), nvgRGBA(5, 0, 15, 160)))
     nvgFill(vg)
 
-    -- ================================================================
-    -- 结算粒子特效
-    -- ================================================================
+    -- 结算粒子
     GameUI.UpdateAndDrawGOParticles(vg, w, h, t, dt, isNewRecord)
 
     nvgFontFace(vg, "sans")
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
 
     -- ================================================================
-    -- 标题砸入动画：从上方弹入
+    -- 标题弹入
     -- ================================================================
-    local titleTargetY = h * 0.20
+    local titleTargetY = h * 0.14
     local titleY = titleTargetY
-    if animT < 0.6 then
-        -- 弹簧入场
-        local p = animT / 0.6
-        local bounce = math.sin(p * math.pi * 2.5) * (1 - p) * 60
-        titleY = -60 + (titleTargetY + 60) * math.min(1, p * 1.2) + bounce
+    if animT < 0.5 then
+        local p = animT / 0.5
+        local bounce = math.sin(p * math.pi * 2) * (1 - p) * 40
+        titleY = -50 + (titleTargetY + 50) * math.min(1, p * 1.3) + bounce
     end
 
-    -- 标题"游戏结束"（红色大字 + 黑色描边 + 闪光）
-    nvgFontSize(vg, 56)
-    -- 描边
-    for _, off in ipairs({{-3,-3},{3,-3},{-3,3},{3,3},{0,-4},{0,4},{-4,0},{4,0}}) do
-        nvgFillColor(vg, nvgRGBA(0, 0, 0, 220))
+    nvgFontSize(vg, 48)
+    for _, off in ipairs({{-2,-2},{2,-2},{-2,2},{2,2},{0,-3},{0,3},{-3,0},{3,0}}) do
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, 200))
         nvgText(vg, w/2 + off[1], titleY + off[2], "游戏结束")
     end
-    -- 红色主体 + 脉冲高光
-    local titlePulse = math.sin(t * 4) * 0.3 + 0.7
-    nvgFillColor(vg, nvgRGBA(255, math.floor(50 + titlePulse * 40), math.floor(30 + titlePulse * 30), 255))
+    nvgFillColor(vg, nvgRGBA(255, 240, 235, 255))
     nvgText(vg, w/2, titleY, "游戏结束")
 
     -- ================================================================
-    -- 统计数据：分数滚动 + 逐行弹入
+    -- 统计卡片（半透明圆角容器）
     -- ================================================================
-    local statsStartY = h * 0.38
-    local lineH = 42
+    local cardW = math.min(380, w * 0.45)
+    local cardH = 220
+    local cardX = (w - cardW) / 2
+    local cardTargetY = h * 0.24
+    local cardY = cardTargetY
 
-    -- 分数（滚动计数动画）
-    local scoreDisplay = State.score
-    if animT < 1.5 then
-        local countProgress = math.min(1.0, (animT - 0.3) / 1.0)
-        if countProgress < 0 then countProgress = 0 end
-        -- 缓出
-        countProgress = 1.0 - (1.0 - countProgress) * (1.0 - countProgress)
-        scoreDisplay = math.floor(State.score * countProgress)
-    end
+    -- 卡片整体淡入
+    local cardAlpha = math.min(1.0, math.max(0, (animT - 0.25) * 3))
+    if cardAlpha > 0 then
+        nvgSave(vg)
+        nvgGlobalAlpha(vg, cardAlpha)
 
-    -- 第1行：得分
-    local row1Alpha = math.floor(math.min(1, math.max(0, (animT - 0.2) * 4)) * 255)
-    local row1Slide = math.floor(math.max(0, 1.0 - (animT - 0.2) * 4) * 40)
-    nvgFontSize(vg, 32)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(row1Alpha * 0.5)))
-    nvgText(vg, w/2 + 2 - row1Slide, statsStartY + 2, "🏅 得分: " .. scoreDisplay)
-    nvgFillColor(vg, nvgRGBA(255, 255, 255, row1Alpha))
-    nvgText(vg, w/2 - row1Slide, statsStartY, "🏅 得分: " .. scoreDisplay)
+        -- 卡片背景
+        nvgBeginPath(vg)
+        nvgRoundedRect(vg, cardX, cardY, cardW, cardH, 14)
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, 150))
+        nvgFill(vg)
+        nvgStrokeWidth(vg, 1)
+        nvgStrokeColor(vg, nvgRGBA(255, 255, 255, 25))
+        nvgStroke(vg)
 
-    -- 第2行：金币
-    local row2Alpha = math.floor(math.min(1, math.max(0, (animT - 0.5) * 4)) * 255)
-    local row2Slide = math.floor(math.max(0, 1.0 - (animT - 0.5) * 4) * 40)
-    nvgFontSize(vg, 24)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(row2Alpha * 0.4)))
-    nvgText(vg, w/2 + 1 + row2Slide, statsStartY + lineH + 1, "🪙 金币: " .. State.coins)
-    nvgFillColor(vg, nvgRGBA(255, 220, 50, row2Alpha))
-    nvgText(vg, w/2 + row2Slide, statsStartY + lineH, "🪙 金币: " .. State.coins)
-
-    -- 第3行：距离
-    local row3Alpha = math.floor(math.min(1, math.max(0, (animT - 0.8) * 4)) * 255)
-    local row3Slide = math.floor(math.max(0, 1.0 - (animT - 0.8) * 4) * 40)
-    nvgFontSize(vg, 22)
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(row3Alpha * 0.4)))
-    nvgText(vg, w/2 + 1 - row3Slide, statsStartY + lineH * 2 + 1, string.format("📏 距离: %.0f 米", State.distanceTraveled))
-    nvgFillColor(vg, nvgRGBA(180, 220, 255, row3Alpha))
-    nvgText(vg, w/2 - row3Slide, statsStartY + lineH * 2, string.format("📏 距离: %.0f 米", State.distanceTraveled))
-
-    -- 第4行：速度记录
-    local row4Alpha = math.floor(math.min(1, math.max(0, (animT - 1.0) * 4)) * 255)
-    nvgFontSize(vg, 18)
-    nvgFillColor(vg, nvgRGBA(160, 180, 200, row4Alpha))
-    nvgText(vg, w/2, statsStartY + lineH * 3, string.format("⚡ 最高速度: %.0f km/h", State.runSpeed * 3.6))
-
-    -- ================================================================
-    -- 新纪录 / 最高分
-    -- ================================================================
-    local recordY = statsStartY + lineH * 4 + 10
-    local row5Alpha = math.floor(math.min(1, math.max(0, (animT - 1.3) * 3)) * 255)
-
-    if isNewRecord then
-        -- 新纪录！！ 超级闪烁彩虹
-        local hue = (t * 120) % 360
-        local nr, ng, nb = GameUI.HSVtoRGB(hue, 0.8, 1.0)
-        local recBounce = math.sin(t * 5) * 4
-        local recScale = 1.0 + math.sin(t * 6) * 0.08
-
-        nvgFontSize(vg, 30 * recScale)
-        -- 光晕
-        nvgFillColor(vg, nvgRGBA(nr, ng, nb, math.floor(row5Alpha * 0.3)))
-        nvgText(vg, w/2, recordY + recBounce, "🎉🎉 新纪录!!! 🎉🎉")
-        -- 描边
-        for _, off in ipairs({{-2,-2},{2,-2},{-2,2},{2,2}}) do
-            nvgFillColor(vg, nvgRGBA(0, 0, 0, row5Alpha))
-            nvgText(vg, w/2 + off[1], recordY + off[2] + recBounce, "🎉🎉 新纪录!!! 🎉🎉")
+        -- 分数滚动
+        local scoreDisplay = State.score
+        if animT < 1.5 then
+            local cp = math.min(1.0, math.max(0, (animT - 0.3) / 1.0))
+            cp = 1.0 - (1.0 - cp) * (1.0 - cp)
+            scoreDisplay = math.floor(State.score * cp)
         end
-        -- 彩虹主体
-        nvgFillColor(vg, nvgRGBA(nr, ng, nb, row5Alpha))
-        nvgText(vg, w/2, recordY + recBounce, "🎉🎉 新纪录!!! 🎉🎉")
-    else
-        nvgFontSize(vg, 22)
-        nvgFillColor(vg, nvgRGBA(180, 180, 180, row5Alpha))
-        nvgText(vg, w/2, recordY, "🏆 最高分: " .. State.highScore)
+
+        local innerX = cardX + cardW / 2
+        local rowY = cardY + 32
+
+        -- 得分（大号，居中突出）
+        nvgFontSize(vg, 42)
+        nvgFillColor(vg, nvgRGBA(255, 255, 255, 255))
+        nvgText(vg, innerX, rowY, tostring(scoreDisplay))
+        nvgFontSize(vg, 14)
+        nvgFillColor(vg, nvgRGBA(180, 190, 210, 180))
+        nvgText(vg, innerX, rowY + 26, "得 分")
+
+        -- 分割线
+        local sepY = rowY + 44
+        nvgBeginPath(vg)
+        nvgMoveTo(vg, cardX + 20, sepY)
+        nvgLineTo(vg, cardX + cardW - 20, sepY)
+        nvgStrokeColor(vg, nvgRGBA(255, 255, 255, 30))
+        nvgStrokeWidth(vg, 1)
+        nvgStroke(vg)
+
+        -- 三列统计：金币 / 距离 / 速度
+        local colW = cardW / 3
+        local statY = sepY + 30
+
+        -- 金币
+        nvgFontSize(vg, 24)
+        nvgFillColor(vg, nvgRGBA(255, 220, 50, 255))
+        nvgText(vg, cardX + colW * 0.5, statY, "🪙 " .. State.coins)
+        nvgFontSize(vg, 12)
+        nvgFillColor(vg, nvgRGBA(160, 170, 190, 160))
+        nvgText(vg, cardX + colW * 0.5, statY + 22, "金币")
+
+        -- 距离
+        nvgFontSize(vg, 24)
+        nvgFillColor(vg, nvgRGBA(130, 200, 255, 255))
+        nvgText(vg, cardX + colW * 1.5, statY, string.format("%.0f", State.distanceTraveled))
+        nvgFontSize(vg, 12)
+        nvgFillColor(vg, nvgRGBA(160, 170, 190, 160))
+        nvgText(vg, cardX + colW * 1.5, statY + 22, "米")
+
+        -- 速度
+        nvgFontSize(vg, 24)
+        nvgFillColor(vg, nvgRGBA(255, 160, 80, 255))
+        nvgText(vg, cardX + colW * 2.5, statY, string.format("%.0f", State.runSpeed * 3.6))
+        nvgFontSize(vg, 12)
+        nvgFillColor(vg, nvgRGBA(160, 170, 190, 160))
+        nvgText(vg, cardX + colW * 2.5, statY + 22, "km/h")
+
+        -- 新纪录 / 最高分（卡片内底部）
+        local recY = cardY + cardH - 30
+        if isNewRecord then
+            local hue = (t * 90) % 360
+            local nr, ng, nb = GameUI.HSVtoRGB(hue, 0.7, 1.0)
+            local recBounce = math.sin(t * 5) * 3
+            local recScale = 1.0 + math.sin(t * 6) * 0.06
+
+            nvgFontSize(vg, 24 * recScale)
+            for _, off in ipairs({{-2,-2},{2,-2},{-2,2},{2,2}}) do
+                nvgFillColor(vg, nvgRGBA(0, 0, 0, 200))
+                nvgText(vg, innerX + off[1], recY + off[2] + recBounce, "🎉 新纪录！！ 🎉")
+            end
+            nvgFillColor(vg, nvgRGBA(nr, ng, nb, 255))
+            nvgText(vg, innerX, recY + recBounce, "🎉 新纪录！！ 🎉")
+        else
+            nvgFontSize(vg, 18)
+            nvgFillColor(vg, nvgRGBA(200, 200, 200, 160))
+            nvgText(vg, innerX, recY, "🏆 最高分: " .. State.highScore)
+        end
+
+        nvgRestore(vg)
     end
 
     -- ================================================================
-    -- 庆祝特效：分数 >= 40000 时显示（人物弹出 + 大拇指 + 成就文字）
+    -- 庆祝特效（分数 >= 40000，保留完整动画）
     -- ================================================================
     if State.score >= 40000 and celebCharImg ~= -1 then
         celebAnimT = celebAnimT + dt
@@ -1043,23 +1038,55 @@ function GameUI.DrawGameOver(w, h)
     -- ================================================================
     -- 排行榜（右侧面板，延迟淡入）
     -- ================================================================
-    local lbAlpha = math.floor(math.min(1, math.max(0, (animT - 1.0) * 2)) * 255)
+    local lbAlpha = math.floor(math.min(1, math.max(0, (animT - 0.8) * 2)) * 255)
     Leaderboard.Draw(vg, w, h, lbAlpha)
 
     -- ================================================================
-    -- 重新开始提示文字（1.5秒后出现，闪烁呼吸）
+    -- 重新开始按钮（胶囊按钮，与菜单风格统一）
     -- ================================================================
-    if animT > 1.5 then
-        local btnAlpha = math.floor(math.min(1, (animT - 1.5) * 3) * 255)
-        local promptY = h * 0.82
-        local promptFlicker = math.floor(140 + math.sin(t * 3.5) * 115)
-        local finalAlpha = math.floor(btnAlpha * promptFlicker / 255)
+    if animT > 1.2 then
+        local btnFade = math.min(1.0, (animT - 1.2) * 2.5)
+        local btnPulse = math.sin(t * 3) * 0.08 + 1.0
+        local btnW = math.min(260, w * 0.35)
+        local btnH = 46
+        local btnX = (w - btnW) / 2
+        local btnY = h * 0.82
 
-        nvgFontSize(vg, 24)
-        nvgFillColor(vg, nvgRGBA(0, 0, 0, math.floor(finalAlpha * 0.5)))
-        nvgText(vg, w/2 + 1, promptY + 1, "按下空格，再来一局！")
-        nvgFillColor(vg, nvgRGBA(255, 255, 255, finalAlpha))
-        nvgText(vg, w/2, promptY, "按下空格，再来一局！")
+        nvgSave(vg)
+        nvgGlobalAlpha(vg, btnFade)
+        nvgTranslate(vg, w / 2, btnY + btnH / 2)
+        nvgScale(vg, btnPulse, btnPulse)
+        nvgTranslate(vg, -w / 2, -(btnY + btnH / 2))
+
+        -- 发光底层
+        nvgBeginPath(vg)
+        nvgRoundedRect(vg, btnX - 3, btnY - 3, btnW + 6, btnH + 6, btnH / 2 + 3)
+        nvgFillColor(vg, nvgRGBA(255, 200, 60, math.floor(15 + math.sin(t * 4) * 10)))
+        nvgFill(vg)
+
+        -- 按钮主体
+        nvgBeginPath(vg)
+        nvgRoundedRect(vg, btnX, btnY, btnW, btnH, btnH / 2)
+        nvgFillPaint(vg, nvgLinearGradient(vg, btnX, btnY, btnX, btnY + btnH,
+            nvgRGBA(255, 200, 50, 190), nvgRGBA(245, 160, 20, 210)))
+        nvgFill(vg)
+
+        -- 高光
+        nvgBeginPath(vg)
+        nvgRoundedRect(vg, btnX + 2, btnY + 2, btnW - 4, btnH / 2, btnH / 4)
+        nvgFillPaint(vg, nvgLinearGradient(vg, 0, btnY, 0, btnY + btnH * 0.45,
+            nvgRGBA(255, 255, 255, 50), nvgRGBA(255, 255, 255, 0)))
+        nvgFill(vg)
+
+        -- 文字
+        nvgFontSize(vg, 22)
+        nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+        nvgFillColor(vg, nvgRGBA(60, 30, 0, 200))
+        nvgText(vg, w / 2, btnY + btnH / 2 + 1, "按 空格 再来一局")
+        nvgFillColor(vg, nvgRGBA(80, 40, 0, 255))
+        nvgText(vg, w / 2, btnY + btnH / 2, "按 空格 再来一局")
+
+        nvgRestore(vg)
     end
 
     nvgRestore(vg)
