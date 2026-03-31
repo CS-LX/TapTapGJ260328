@@ -400,7 +400,7 @@ function Player.Update(dt)
     end
 
     -- 虚空宽限期：停留超过 0.15 秒才坠落
-    local VOID_GRACE = 0.15
+    local VOID_GRACE = 0.05
 
     if State.isJumping then
         pos.y = pos.y + State.playerVelocityY * dt
