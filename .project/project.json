@@ -5,7 +5,7 @@
     "id": "771520039"
   },
   "entry": "main.lua",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "taptap_publish": {
     "developer_id": 248818,
     "title": "似腿快跑",
@@ -13,7 +13,7 @@
     "category": "action",
     "screen_orientation": "landscape",
     "collection_type": "sce",
-    "trial_note": "v1.1 更新日志：\n1. 全新UI：主菜单和结算界面焕然一新，白金配色更清爽\n2. 个人统计：结算页新增累计统计面板，总距离/得分/金币/心心/磁铁/大运一目了然，数据云端同步\n3. 坑洞容错：掉入坑洞增加短暂宽限期，不再一碰就坠落\n4. 修复新纪录误判：历史最高分现在从云端加载，不再每局都是新纪录\n5. 音效优化：全面调整各音效音量平衡",
+    "trial_note": "v1.2 更新日志：\n1. 全新主角：Minecraft Steve风格方块人，辨识度更高\n2. 皮肤系统：外观模块化架构，为后续皮肤扩展做好准备\n3. 操作优化：滑铲中可按跳跃取消滑铲并跳起，操作更灵活",
     "app_platforms": "1,2",
     "app_id": 835258,
     "miniapp_id": "tapmcmu6gmn7y5mw4b",

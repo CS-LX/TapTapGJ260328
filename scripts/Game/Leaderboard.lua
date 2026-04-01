@@ -11,6 +11,7 @@ local Leaderboard = {}
 local rankList = {}         -- { rank, userId, nickname, score, isMe }
 local myRank = nil          -- 我的排名 (number or nil)
 local myScore = nil         -- 我的分数
+local rankTotal = nil       -- 排行榜总人数
 local isLoading = false     -- 是否正在加载
 local loadError = false     -- 是否加载失败
 local lastFetchTime = 0     -- 上次加载时间（防止频繁请求）
@@ -161,6 +162,13 @@ function Leaderboard.Fetch()
                 ok = function(rank, scoreValue)
                     myRank = rank
                     myScore = scoreValue
+                end,
+            })
+
+            -- 获取排行榜总人数
+            clientCloud:GetRankTotal("high_score", {
+                ok = function(total)
+                    rankTotal = total
                 end,
             })
 
@@ -352,8 +360,13 @@ function Leaderboard.Draw(vg, w, h, panelAlpha)
         nvgFontSize(vg, 18)
         if myRank then
             nvgFillColor(vg, nvgRGBA(255, 220, 80, panelAlpha))
-            nvgText(vg, panelX + panelW / 2, footerY,
-                string.format("我的排名: #%d  分数: %d", myRank, myScore or 0))
+            local rankStr
+            if rankTotal then
+                rankStr = string.format("我的排名: #%d / %d  分数: %d", myRank, rankTotal, myScore or 0)
+            else
+                rankStr = string.format("我的排名: #%d  分数: %d", myRank, myScore or 0)
+            end
+            nvgText(vg, panelX + panelW / 2, footerY, rankStr)
         else
             nvgFillColor(vg, nvgRGBA(160, 160, 160, panelAlpha))
             nvgText(vg, panelX + panelW / 2, footerY, "尚未上榜")
