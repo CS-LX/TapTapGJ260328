@@ -8,6 +8,7 @@ local ItemManager = require "Game.Items.ItemManager"
 local BGM         = require "Game.BGM"
 local SFX         = require "Game.SFX"
 local Scenery     = require "Game.World.Scenery"
+local PlayerSkin  = require "Game.PlayerSkin"
 
 local Player = {}
 
@@ -19,52 +20,8 @@ function Player.Create()
     State.playerNode = State.scene:CreateChild("Player")
     State.playerNode.position = Vector3(0, 0, 0)
 
-    -- 身体
-    local bodyNode = State.playerNode:CreateChild("Body")
-    bodyNode.position = Vector3(0, 0.9, 0)
-    bodyNode.scale = Vector3(0.6, 1.8, 0.5)
-    local bodyModel = bodyNode:CreateComponent("StaticModel")
-    bodyModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    local bodyMat = Material:new()
-    bodyMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-    bodyMat:SetShaderParameter("MatDiffColor", Variant(Color(0.2, 0.5, 0.9, 1.0)))
-    bodyMat:SetShaderParameter("Metallic", Variant(0.1))
-    bodyMat:SetShaderParameter("Roughness", Variant(0.6))
-    bodyModel:SetMaterial(bodyMat)
-    bodyModel.castShadows = true
-
-    -- 头部
-    local headNode = State.playerNode:CreateChild("Head")
-    headNode.position = Vector3(0, 2.0, 0)
-    headNode.scale = Vector3(0.5, 0.5, 0.5)
-    local headModel = headNode:CreateComponent("StaticModel")
-    headModel:SetModel(cache:GetResource("Model", "Models/Sphere.mdl"))
-    local headMat = Material:new()
-    headMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-    headMat:SetShaderParameter("MatDiffColor", Variant(Color(0.9, 0.7, 0.5, 1.0)))
-    headMat:SetShaderParameter("Metallic", Variant(0.0))
-    headMat:SetShaderParameter("Roughness", Variant(0.7))
-    headModel:SetMaterial(headMat)
-    headModel.castShadows = true
-
-    -- 双腿
-    Player.CreateLeg("LeftLeg", Vector3(-0.15, 0, 0))
-    Player.CreateLeg("RightLeg", Vector3(0.15, 0, 0))
-end
-
-function Player.CreateLeg(name, offset)
-    local legNode = State.playerNode:CreateChild(name)
-    legNode.position = offset
-    legNode.scale = Vector3(0.25, 0.8, 0.25)
-    local legModel = legNode:CreateComponent("StaticModel")
-    legModel:SetModel(cache:GetResource("Model", "Models/Box.mdl"))
-    local legMat = Material:new()
-    legMat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-    legMat:SetShaderParameter("MatDiffColor", Variant(Color(0.15, 0.15, 0.4, 1.0)))
-    legMat:SetShaderParameter("Metallic", Variant(0.0))
-    legMat:SetShaderParameter("Roughness", Variant(0.8))
-    legModel:SetMaterial(legMat)
-    legModel.castShadows = true
+    -- 使用皮肤模块创建外观
+    PlayerSkin.Apply(State.playerNode)
 end
 
 -- ============================================================================
@@ -192,7 +149,12 @@ function Player.SwitchLane(direction)
 end
 
 function Player.Jump()
-    if not State.isJumping and not State.isSliding then
+    if not State.isJumping then
+        -- 滑铲中按跳跃 → 取消滑铲并跳起
+        if State.isSliding then
+            State.isSliding = false
+            State.slideTimer = 0
+        end
         State.isJumping = true
         State.playerVelocityY = Config.JUMP_VELOCITY
         SFX.Play("throw.ogg", 0.5)
@@ -478,62 +440,11 @@ function Player.Update(dt)
 end
 
 function Player.SetVisible(visible)
-    local body = State.playerNode:GetChild("Body")
-    local head = State.playerNode:GetChild("Head")
-    local leftLeg = State.playerNode:GetChild("LeftLeg")
-    local rightLeg = State.playerNode:GetChild("RightLeg")
-    if body then body:SetEnabled(visible) end
-    if head then head:SetEnabled(visible) end
-    if leftLeg then leftLeg:SetEnabled(visible) end
-    if rightLeg then rightLeg:SetEnabled(visible) end
+    PlayerSkin.SetVisible(State.playerNode, visible)
 end
 
 function Player.UpdateVisual(dt)
-    local bodyNode = State.playerNode:GetChild("Body")
-    local headNode = State.playerNode:GetChild("Head")
-    local leftLeg = State.playerNode:GetChild("LeftLeg")
-    local rightLeg = State.playerNode:GetChild("RightLeg")
-
-    if State.isSliding then
-        if bodyNode then
-            bodyNode.position = Vector3(0, 0.3, 0)
-            bodyNode.scale = Vector3(0.6, 0.6, 0.8)
-        end
-        if headNode then
-            headNode.position = Vector3(0, 0.8, 0.2)
-            headNode.scale = Vector3(0.45, 0.45, 0.45)
-        end
-        if leftLeg then
-            leftLeg.position = Vector3(-0.15, 0.15, 0.3)
-            leftLeg.scale = Vector3(0.25, 0.3, 0.6)
-        end
-        if rightLeg then
-            rightLeg.position = Vector3(0.15, 0.15, 0.3)
-            rightLeg.scale = Vector3(0.25, 0.3, 0.6)
-        end
-    else
-        if bodyNode then
-            bodyNode.position = Vector3(0, 0.9, 0)
-            bodyNode.scale = Vector3(0.6, 1.8, 0.5)
-        end
-        if headNode then
-            headNode.position = Vector3(0, 2.0, 0)
-            headNode.scale = Vector3(0.5, 0.5, 0.5)
-        end
-
-        State.playerRunAngle = State.playerRunAngle + dt * State.runSpeed * 0.8
-        local legSwing = math.sin(State.playerRunAngle) * 0.3
-        if leftLeg then
-            leftLeg.position = Vector3(-0.15, 0.4, legSwing)
-            leftLeg.scale = Vector3(0.25, 0.8, 0.25)
-            leftLeg.rotation = Quaternion(-legSwing * 40, Vector3.RIGHT)
-        end
-        if rightLeg then
-            rightLeg.position = Vector3(0.15, 0.4, -legSwing)
-            rightLeg.scale = Vector3(0.25, 0.8, 0.25)
-            rightLeg.rotation = Quaternion(legSwing * 40, Vector3.RIGHT)
-        end
-    end
+    PlayerSkin.UpdateVisual(State.playerNode, dt)
 end
 
 -- ============================================================================
