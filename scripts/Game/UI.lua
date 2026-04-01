@@ -268,6 +268,7 @@ function GameUI.DrawMenu(w, h)
     -- ================================================================
     GameUI.DrawBGMButton(vg, w, h)
     Leaderboard.Draw(vg, w, h, 255)
+    GameUI.DrawStatsPanel(vg, w, h, 255)
 end
 
 -- ============================================================================
