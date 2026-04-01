@@ -1,0 +1,87 @@
+{
+    "name": "steve",
+    "displayName": "史蒂夫",
+    "parts": [
+        {
+            "name": "Head",
+            "model": "Models/Box.mdl",
+            "scale": [0.5, 0.5, 0.5],
+            "offset": [0, 1.85, 0],
+            "color": [0.76, 0.60, 0.42, 1.0],
+            "metallic": 0.0,
+            "roughness": 0.75
+        },
+        {
+            "name": "Body",
+            "model": "Models/Box.mdl",
+            "scale": [0.5, 0.75, 0.25],
+            "offset": [0, 1.225, 0],
+            "color": [0.0, 0.67, 0.67, 1.0],
+            "metallic": 0.0,
+            "roughness": 0.7
+        },
+        {
+            "name": "LeftArm",
+            "model": "Models/Box.mdl",
+            "scale": [0.25, 0.75, 0.25],
+            "offset": [-0.375, 1.225, 0],
+            "color": [0.76, 0.60, 0.42, 1.0],
+            "metallic": 0.0,
+            "roughness": 0.75
+        },
+        {
+            "name": "RightArm",
+            "model": "Models/Box.mdl",
+            "scale": [0.25, 0.75, 0.25],
+            "offset": [0.375, 1.225, 0],
+            "color": [0.76, 0.60, 0.42, 1.0],
+            "metallic": 0.0,
+            "roughness": 0.75
+        },
+        {
+            "name": "LeftLeg",
+            "model": "Models/Box.mdl",
+            "scale": [0.25, 0.75, 0.25],
+            "offset": [-0.125, 0.375, 0],
+            "color": [0.0, 0.0, 0.82, 1.0],
+            "metallic": 0.0,
+            "roughness": 0.8
+        },
+        {
+            "name": "RightLeg",
+            "model": "Models/Box.mdl",
+            "scale": [0.25, 0.75, 0.25],
+            "offset": [0.125, 0.375, 0],
+            "color": [0.0, 0.0, 0.82, 1.0],
+            "metallic": 0.0,
+            "roughness": 0.8
+        }
+    ],
+    "poses": {
+        "idle": {
+            "Head":     { "pos": [0, 1.85, 0],     "scale": [0.5, 0.5, 0.5],   "rot": [0, 0, 0] },
+            "Body":     { "pos": [0, 1.225, 0],     "scale": [0.5, 0.75, 0.25], "rot": [0, 0, 0] },
+            "LeftArm":  { "pos": [-0.375, 1.225, 0],"scale": [0.25, 0.75, 0.25],"rot": [0, 0, 0] },
+            "RightArm": { "pos": [0.375, 1.225, 0], "scale": [0.25, 0.75, 0.25],"rot": [0, 0, 0] },
+            "LeftLeg":  { "pos": [-0.125, 0.375, 0],"scale": [0.25, 0.75, 0.25],"rot": [0, 0, 0] },
+            "RightLeg": { "pos": [0.125, 0.375, 0], "scale": [0.25, 0.75, 0.25],"rot": [0, 0, 0] }
+        },
+        "slide": {
+            "Head":     { "pos": [0, 0.65, 0.3],      "scale": [0.45, 0.45, 0.45], "rot": [0, 0, 0] },
+            "Body":     { "pos": [0, 0.3, 0.1],        "scale": [0.5, 0.5, 0.35],   "rot": [20, 0, 0] },
+            "LeftArm":  { "pos": [-0.3, 0.3, 0.15],    "scale": [0.2, 0.5, 0.2],    "rot": [30, 0, 0] },
+            "RightArm": { "pos": [0.3, 0.3, 0.15],     "scale": [0.2, 0.5, 0.2],    "rot": [30, 0, 0] },
+            "LeftLeg":  { "pos": [-0.125, 0.15, 0.35],  "scale": [0.25, 0.3, 0.55],  "rot": [0, 0, 0] },
+            "RightLeg": { "pos": [0.125, 0.15, 0.35],   "scale": [0.25, 0.3, 0.55],  "rot": [0, 0, 0] }
+        }
+    },
+    "runAnim": {
+        "armSwingDeg": 45,
+        "legSwingDeg": 40,
+        "armSwingOffset": 0.5,
+        "legSwingOffset": 0.4,
+        "speedFactor": 0.8,
+        "swingAmplitudeArm": 0.35,
+        "swingAmplitudeLeg": 0.30
+    }
+}

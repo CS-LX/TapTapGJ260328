@@ -1,5 +1,5 @@
 -- ============================================================================
--- Game/PlayerSkin.lua — 玩家皮肤模块（外观创建 + 动画）
+-- Game/PlayerSkin.lua — 玩家皮肤模块（从 JSON 加载配置，数据驱动外观 + 动画）
 -- ============================================================================
 
 local Config = require "Game.Config"
@@ -8,78 +8,67 @@ local State  = require "Game.State"
 local PlayerSkin = {}
 
 -- ============================================================================
--- 皮肤定义（数据驱动，方便扩展）
+-- 内部状态
 -- ============================================================================
 
-local SKINS = {
-    steve = {
-        parts = {
-            -- 头部（方块）
-            {
-                name     = "Head",
-                model    = "Models/Box.mdl",
-                scale    = Vector3(0.5, 0.5, 0.5),
-                offset   = Vector3(0, 1.85, 0),
-                color    = Color(0.76, 0.60, 0.42, 1.0),
-                metallic = 0.0,
-                roughness = 0.75,
-            },
-            -- 躯干
-            {
-                name     = "Body",
-                model    = "Models/Box.mdl",
-                scale    = Vector3(0.5, 0.75, 0.25),
-                offset   = Vector3(0, 1.225, 0),
-                color    = Color(0.0, 0.67, 0.67, 1.0),
-                metallic = 0.0,
-                roughness = 0.7,
-            },
-            -- 左臂
-            {
-                name     = "LeftArm",
-                model    = "Models/Box.mdl",
-                scale    = Vector3(0.25, 0.75, 0.25),
-                offset   = Vector3(-0.375, 1.225, 0),
-                color    = Color(0.76, 0.60, 0.42, 1.0),
-                metallic = 0.0,
-                roughness = 0.75,
-            },
-            -- 右臂
-            {
-                name     = "RightArm",
-                model    = "Models/Box.mdl",
-                scale    = Vector3(0.25, 0.75, 0.25),
-                offset   = Vector3(0.375, 1.225, 0),
-                color    = Color(0.76, 0.60, 0.42, 1.0),
-                metallic = 0.0,
-                roughness = 0.75,
-            },
-            -- 左腿
-            {
-                name     = "LeftLeg",
-                model    = "Models/Box.mdl",
-                scale    = Vector3(0.25, 0.75, 0.25),
-                offset   = Vector3(-0.125, 0.375, 0),
-                color    = Color(0.0, 0.0, 0.82, 1.0),
-                metallic = 0.0,
-                roughness = 0.8,
-            },
-            -- 右腿
-            {
-                name     = "RightLeg",
-                model    = "Models/Box.mdl",
-                scale    = Vector3(0.25, 0.75, 0.25),
-                offset   = Vector3(0.125, 0.375, 0),
-                color    = Color(0.0, 0.0, 0.82, 1.0),
-                metallic = 0.0,
-                roughness = 0.8,
-            },
-        },
-    },
-}
-
--- 当前使用的皮肤名称
+---@type table<string, table>  已加载的皮肤配置缓存 { skinName -> skinData }
+local loadedSkins = {}
 local currentSkin = "steve"
+
+-- ============================================================================
+-- JSON 加载
+-- ============================================================================
+
+--- 从资源文件加载皮肤 JSON
+---@param skinName string 皮肤名称（对应 Skins/<skinName>.json）
+---@return table|nil skinData 解析后的皮肤数据
+local function LoadSkinJSON(skinName)
+    if loadedSkins[skinName] then
+        return loadedSkins[skinName]
+    end
+
+    local path = "Skins/" .. skinName .. ".json"
+    local file = cache:GetFile(path)
+    if not file then
+        print("[PlayerSkin] Skin file not found: " .. path)
+        return nil
+    end
+
+    local jsonStr = file:ReadString()
+    file:Close()
+
+    local ok, data = pcall(cjson.decode, jsonStr) ---@diagnostic disable-line: undefined-global
+    if not ok then
+        print("[PlayerSkin] JSON parse error for " .. path .. ": " .. tostring(data))
+        return nil
+    end
+
+    loadedSkins[skinName] = data
+    return data
+end
+
+-- ============================================================================
+-- 工具函数：JSON 数组 → 引擎类型
+-- ============================================================================
+
+---@param arr number[] [x, y, z]
+---@return Vector3
+local function toVec3(arr)
+    return Vector3(arr[1], arr[2], arr[3])
+end
+
+---@param arr number[] [r, g, b, a]
+---@return Color
+local function toColor(arr)
+    return Color(arr[1], arr[2], arr[3], arr[4] or 1.0)
+end
+
+---@param arr number[] [pitch, yaw, roll]
+---@return Quaternion
+local function toRot(arr)
+    if not arr then return Quaternion(0, 0, 0) end
+    return Quaternion(arr[1], arr[2], arr[3])
+end
 
 -- ============================================================================
 -- 公共接口
@@ -92,11 +81,18 @@ end
 
 --- 设置皮肤（下次 Apply 时生效）
 function PlayerSkin.SetSkin(skinName)
-    if SKINS[skinName] then
+    local data = LoadSkinJSON(skinName)
+    if data then
         currentSkin = skinName
     else
         print("[PlayerSkin] Unknown skin: " .. tostring(skinName))
     end
+end
+
+--- 获取已加载的皮肤数据（供外部读取配置）
+function PlayerSkin.GetSkinData(skinName)
+    skinName = skinName or currentSkin
+    return LoadSkinJSON(skinName)
 end
 
 --- 创建/重建角色外观
@@ -104,7 +100,7 @@ end
 ---@param skinName? string 可选，不传则使用当前皮肤
 function PlayerSkin.Apply(playerNode, skinName)
     skinName = skinName or currentSkin
-    local skin = SKINS[skinName]
+    local skin = LoadSkinJSON(skinName)
     if not skin then
         print("[PlayerSkin] Skin not found: " .. tostring(skinName))
         return
@@ -117,13 +113,13 @@ function PlayerSkin.Apply(playerNode, skinName)
     -- 创建新部件
     for _, part in ipairs(skin.parts) do
         local node = playerNode:CreateChild(part.name)
-        node.position = part.offset
-        node.scale = part.scale
+        node.position = toVec3(part.offset)
+        node.scale = toVec3(part.scale)
         local model = node:CreateComponent("StaticModel")
         model:SetModel(cache:GetResource("Model", part.model))
         local mat = Material:new()
         mat:SetTechnique(0, cache:GetResource("Technique", "Techniques/PBR/PBRNoTexture.xml"))
-        mat:SetShaderParameter("MatDiffColor", Variant(part.color))
+        mat:SetShaderParameter("MatDiffColor", Variant(toColor(part.color)))
         mat:SetShaderParameter("Metallic", Variant(part.metallic or 0.0))
         mat:SetShaderParameter("Roughness", Variant(part.roughness or 0.5))
         model:SetMaterial(mat)
@@ -133,7 +129,7 @@ end
 
 --- 移除所有皮肤部件
 function PlayerSkin.RemoveParts(playerNode)
-    local skin = SKINS[currentSkin]
+    local skin = LoadSkinJSON(currentSkin)
     if not skin then return end
     for _, part in ipairs(skin.parts) do
         local child = playerNode:GetChild(part.name)
@@ -143,7 +139,7 @@ end
 
 --- 获取当前皮肤的所有部件节点名
 function PlayerSkin.GetPartNames()
-    local skin = SKINS[currentSkin]
+    local skin = LoadSkinJSON(currentSkin)
     if not skin then return {} end
     local names = {}
     for _, part in ipairs(skin.parts) do
@@ -156,7 +152,7 @@ end
 ---@param playerNode Node
 ---@param visible boolean
 function PlayerSkin.SetVisible(playerNode, visible)
-    local skin = SKINS[currentSkin]
+    local skin = LoadSkinJSON(currentSkin)
     if not skin then return end
     for _, part in ipairs(skin.parts) do
         local child = playerNode:GetChild(part.name)
@@ -164,99 +160,91 @@ function PlayerSkin.SetVisible(playerNode, visible)
     end
 end
 
---- 每帧更新动画
+--- 每帧更新动画（从 JSON 配置读取姿态和动画参数）
 ---@param playerNode Node
 ---@param dt number
 function PlayerSkin.UpdateVisual(playerNode, dt)
-    local skin = SKINS[currentSkin]
+    local skin = LoadSkinJSON(currentSkin)
     if not skin then return end
 
-    local head     = playerNode:GetChild("Head")
-    local body     = playerNode:GetChild("Body")
-    local leftArm  = playerNode:GetChild("LeftArm")
-    local rightArm = playerNode:GetChild("RightArm")
-    local leftLeg  = playerNode:GetChild("LeftLeg")
-    local rightLeg = playerNode:GetChild("RightLeg")
+    local poses = skin.poses
+    local runAnim = skin.runAnim
 
     if State.isSliding then
-        -- ====== 滑铲姿态 ======
-        -- 身体压低并前倾
-        if body then
-            body.position = Vector3(0, 0.3, 0.1)
-            body.scale = Vector3(0.5, 0.5, 0.35)
-            body.rotation = Quaternion(20, Vector3.RIGHT)  -- 前倾
-        end
-        -- 头部压低前伸
-        if head then
-            head.position = Vector3(0, 0.65, 0.3)
-            head.scale = Vector3(0.45, 0.45, 0.45)
-        end
-        -- 手臂收拢到身体两侧
-        if leftArm then
-            leftArm.position = Vector3(-0.3, 0.3, 0.15)
-            leftArm.scale = Vector3(0.2, 0.5, 0.2)
-            leftArm.rotation = Quaternion(30, Vector3.RIGHT)
-        end
-        if rightArm then
-            rightArm.position = Vector3(0.3, 0.3, 0.15)
-            rightArm.scale = Vector3(0.2, 0.5, 0.2)
-            rightArm.rotation = Quaternion(30, Vector3.RIGHT)
-        end
-        -- 腿部前伸
-        if leftLeg then
-            leftLeg.position = Vector3(-0.125, 0.15, 0.35)
-            leftLeg.scale = Vector3(0.25, 0.3, 0.55)
-            leftLeg.rotation = Quaternion(0, 0, 0)
-        end
-        if rightLeg then
-            rightLeg.position = Vector3(0.125, 0.15, 0.35)
-            rightLeg.scale = Vector3(0.25, 0.3, 0.55)
-            rightLeg.rotation = Quaternion(0, 0, 0)
+        -- ====== 滑铲姿态：从 poses.slide 读取 ======
+        local slidePose = poses and poses.slide
+        if slidePose then
+            for partName, pose in pairs(slidePose) do
+                local child = playerNode:GetChild(partName)
+                if child then
+                    child.position = toVec3(pose.pos)
+                    child.scale = toVec3(pose.scale)
+                    child.rotation = toRot(pose.rot)
+                end
+            end
         end
     else
-        -- ====== 正常站立/跑步 ======
-        -- 躯干复位
-        if body then
-            body.position = Vector3(0, 1.225, 0)
-            body.scale = Vector3(0.5, 0.75, 0.25)
-            body.rotation = Quaternion(0, 0, 0)
-        end
-        -- 头部复位
-        if head then
-            head.position = Vector3(0, 1.85, 0)
-            head.scale = Vector3(0.5, 0.5, 0.5)
+        -- ====== 正常站立/跑步：从 poses.idle + runAnim 读取 ======
+        local idlePose = poses and poses.idle
+
+        -- 先复位到 idle 姿态
+        if idlePose then
+            for partName, pose in pairs(idlePose) do
+                local child = playerNode:GetChild(partName)
+                if child then
+                    child.position = toVec3(pose.pos)
+                    child.scale = toVec3(pose.scale)
+                    child.rotation = toRot(pose.rot)
+                end
+            end
         end
 
-        -- 摆动动画（手臂和腿交叉摆动）
-        State.playerRunAngle = State.playerRunAngle + dt * State.runSpeed * 0.8
-        local swing = math.sin(State.playerRunAngle)
-        local armSwing = swing * 0.35   -- 摆臂幅度
-        local legSwing = swing * 0.30   -- 摆腿幅度
+        -- 跑步摆动动画
+        if runAnim then
+            local speedFactor = runAnim.speedFactor or 0.8
+            State.playerRunAngle = State.playerRunAngle + dt * State.runSpeed * speedFactor
+            local swing = math.sin(State.playerRunAngle)
+            local armAmp = runAnim.swingAmplitudeArm or 0.35
+            local legAmp = runAnim.swingAmplitudeLeg or 0.30
+            local armDeg = runAnim.armSwingDeg or 45
+            local legDeg = runAnim.legSwingDeg or 40
+            local armOff = runAnim.armSwingOffset or 0.5
+            local legOff = runAnim.legSwingOffset or 0.4
 
-        -- 左臂：与右腿同相
-        if leftArm then
-            leftArm.position = Vector3(-0.375, 1.225, -armSwing * 0.5)
-            leftArm.scale = Vector3(0.25, 0.75, 0.25)
-            leftArm.rotation = Quaternion(armSwing * 45, Vector3.RIGHT)
-        end
-        -- 右臂：与左腿同相
-        if rightArm then
-            rightArm.position = Vector3(0.375, 1.225, armSwing * 0.5)
-            rightArm.scale = Vector3(0.25, 0.75, 0.25)
-            rightArm.rotation = Quaternion(-armSwing * 45, Vector3.RIGHT)
-        end
+            local armSwing = swing * armAmp
+            local legSwing = swing * legAmp
 
-        -- 左腿
-        if leftLeg then
-            leftLeg.position = Vector3(-0.125, 0.375, legSwing * 0.4)
-            leftLeg.scale = Vector3(0.25, 0.75, 0.25)
-            leftLeg.rotation = Quaternion(-legSwing * 40, Vector3.RIGHT)
-        end
-        -- 右腿
-        if rightLeg then
-            rightLeg.position = Vector3(0.125, 0.375, -legSwing * 0.4)
-            rightLeg.scale = Vector3(0.25, 0.75, 0.25)
-            rightLeg.rotation = Quaternion(legSwing * 40, Vector3.RIGHT)
+            -- 左臂（与右腿同相）
+            local leftArm = playerNode:GetChild("LeftArm")
+            if leftArm and idlePose and idlePose.LeftArm then
+                local base = idlePose.LeftArm.pos
+                leftArm.position = Vector3(base[1], base[2], base[3] - armSwing * armOff)
+                leftArm.rotation = Quaternion(armSwing * armDeg, Vector3.RIGHT)
+            end
+
+            -- 右臂（与左腿同相）
+            local rightArm = playerNode:GetChild("RightArm")
+            if rightArm and idlePose and idlePose.RightArm then
+                local base = idlePose.RightArm.pos
+                rightArm.position = Vector3(base[1], base[2], base[3] + armSwing * armOff)
+                rightArm.rotation = Quaternion(-armSwing * armDeg, Vector3.RIGHT)
+            end
+
+            -- 左腿
+            local leftLeg = playerNode:GetChild("LeftLeg")
+            if leftLeg and idlePose and idlePose.LeftLeg then
+                local base = idlePose.LeftLeg.pos
+                leftLeg.position = Vector3(base[1], base[2], base[3] + legSwing * legOff)
+                leftLeg.rotation = Quaternion(-legSwing * legDeg, Vector3.RIGHT)
+            end
+
+            -- 右腿
+            local rightLeg = playerNode:GetChild("RightLeg")
+            if rightLeg and idlePose and idlePose.RightLeg then
+                local base = idlePose.RightLeg.pos
+                rightLeg.position = Vector3(base[1], base[2], base[3] - legSwing * legOff)
+                rightLeg.rotation = Quaternion(legSwing * legDeg, Vector3.RIGHT)
+            end
         end
     end
 end
